@@ -1,0 +1,48 @@
+{
+  "mqtt": {
+    "config": {},
+    "connected": true,
+    "subscribed": true,
+    "error": "",
+    "broker": "host.docker.internal:1883",
+    "device_id": "HY-001",
+    "protocol": "tomato_v1_1",
+    "firmware": "2026-09-03-esp32s3-stable-mqtt-r19",
+    "publish_topic": "tomato_hnsw0001/set",
+    "publish_qos": 0,
+    "subscriptions": [
+      {
+        "topic": "tomato_hnsw0001/telemetry",
+        "qos": 0
+      },
+      {
+        "topic": "tomato_hnsw0001/result",
+        "qos": 0
+      },
+      {
+        "topic": "tomato_hnsw0001/state",
+        "qos": 0
+      },
+      {
+        "topic": "tomato_hnsw0001/availability",
+        "qos": 0
+      }
+    ],
+    "received_at": null,
+    "telemetry_interval_seconds": 15
+  },
+  "devices": [
+    {
+      "id": "HY-001",
+      "online": false,
+      "hardware_mode": true,
+      "latest": null
+    }
+  ],
+  "real_only": true,
+  "model_ready": true,
+  "controls_disabled": true,
+  "level_unit": "cm",
+  "reconnected_after_transport_disconnect": true,
+  "checked_at": "2026-09-14T16:10:48.290Z"
+}

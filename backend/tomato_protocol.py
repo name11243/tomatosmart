@@ -1,4 +1,4 @@
-"""tomato_main.py r18 / protocol 1.1 wire adapter driven by mqtt.yaml."""
+"""ESP32-S3 r19 / protocol 1.1 wire adapter driven by mqtt.yaml."""
 import math
 from . import store as s
 from .mqtt_config import read
@@ -21,6 +21,7 @@ def ingest(service,topic,data,retained=False):
     if not d:raise ValueError('YAML 绑定的系统设备不存在')
     spec=read()['protocol']
     if topic==c['telemetry_topic']:
+        if retained:raise ValueError('拒绝保留的 telemetry 消息，等待设备实时采样')
         values={}
         for wire,field in spec['telemetry_fields'].items():
             value=data.get(wire)
@@ -43,7 +44,7 @@ def ingest(service,topic,data,retained=False):
             validate_command(cmd,{'value':data.get(field)})
         rest=data.get('rest_schedule',{})
         validate_command('09',{k:rest.get(k) for k in spec['commands']['09']['fields']})
-        s.patch('devices',device,{'protocol':'tomato_v1_1','device_state':data,'state_received_at':s.now(),
+        s.patch('devices',device,{'protocol':'tomato_v1_1','device_state':data,'state_received_at':s.now(),'state_retained':retained,
             'mode':'auto' if data['control_mode']==1 else 'manual',
             'actuators':{**d['actuators'],'pump':bool(data['pump_state']),'light':bool(data['light_master_state'])}})
     elif topic==c['ack_topic']:

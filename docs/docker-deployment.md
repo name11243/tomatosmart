@@ -6,6 +6,8 @@
 
 默认保留源项目本机免密角色登录，`HYDRO_REAL_ONLY=1`。没有预置示例数据，未配置模型时不能进行真实识别。MQTT 继续使用 `backend/config/mqtt.yaml`，不会自动向设备下发命令。
 
+MQTT Broker 使用 Windows 原生 EMQX，API 容器经 `host.docker.internal:1883` 自动连接并订阅四个固定上报主题。固件保持 `192.168.31.217:1883`；电脑须处于可接收该地址访问的网络。认证、主题方向和复用脚本见 [本机 EMQX 接入](local-emqx.md)。
+
 番茄成熟度模型使用 `backend/models/tomato-v1.pt`（用户提供的 `best(3).pt`），目录只读挂载到 API 容器。镜像固定使用 Ultralytics 8.3.223、PyTorch 2.9.0 CPU 和 torchvision 0.24.0 CPU，无需显卡。权重未打包进镜像，迁移部署时须同时复制 `backend/models/`。类别和权重校验值见同目录 JSON 清单。
 
 识别入口：http://127.0.0.1:5176/#maturity 。`GET /api/health` 返回 `model.ready`、类别和 SHA-256；未加载成功时真实识别返回 503。模型只在后端配置。上传前需在设备管理登记实际设备和茬次，识别结果与原图、标注图、权重信息一并留存。测试使用隔离临时数据库，不向真实档案加入测试图片或识别记录。

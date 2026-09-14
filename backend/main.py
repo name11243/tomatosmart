@@ -34,7 +34,7 @@ async def ticker():
    if c['status']=='sent_unconfirmed' and time.time()-datetime.fromisoformat(c['created_at']).timestamp()>(read_mqtt_config()['protocol']['result_timeout_seconds'] if c.get('protocol')=='tomato_v1_1' else 30):
     s.patch('commands',c['id'],{'status':'timeout'})
     if c.get('protocol')!='tomato_v1_1':s.patch('devices',c['device'],{'mode':'manual'})
-    s.log('控制回执超时','已暂停自动策略，请检查设备后重新启用。','warning',device=c['device'])
+    s.log('控制回执超时','未收到设备结果，请核对设备状态；设备 AI 模式保持不变。' if c.get('protocol')=='tomato_v1_1' else '已暂停自动策略，请检查设备后重新启用。','warning',device=c['device'])
 @asynccontextmanager
 async def lifespan(app):
  if os.getenv('YOLO_MODEL_PATH'):
@@ -44,7 +44,12 @@ async def lifespan(app):
  except (Neo4jError,DriverError):s.log('Neo4j 连接失败','知识图谱不可用，请检查数据库连接。','error')
  for d in s.allof('devices'):
   if d.get('mode')=='auto' and d.get('protocol')!='tomato_v1_1':s.patch('devices',d['id'],{'mode':'manual'})
- task=asyncio.create_task(ticker());yield;task.cancel();service.disconnect()
+ task=asyncio.create_task(ticker());mqtt_task=asyncio.create_task(service.maintain())
+ try:yield
+ finally:
+  task.cancel();mqtt_task.cancel()
+  await asyncio.gather(task,mqtt_task,return_exceptions=True)
+  await asyncio.to_thread(service.disconnect)
 app=FastAPI(title='多源感知水培智控系统 API',version='1.0.0',lifespan=lifespan)
 @app.exception_handler(Neo4jError)
 @app.exception_handler(DriverError)
@@ -94,10 +99,11 @@ def devices(u=Depends(actor)):
  out=[]
  for d in s.allof('devices'):
   t=s.telemetry(d['id'],1);latest=t[-1] if t and t[-1]['source']==d['source'] else None
-  tomato=d['source']=='mqtt' and service.config()['protocol']=='tomato_v1_1'
+  config=service.config()
+  tomato=d['source']=='mqtt' and config['protocol']=='tomato_v1_1' and d['id']==config['device_id']
   stale=read_mqtt_config()['protocol']['telemetry_stale_seconds'] if tomato else 15
-  online=bool(latest and time.time()-datetime.fromisoformat(latest['ts']).timestamp()<stale and (not tomato or d.get('mqtt_available',False)))
-  out.append({**d,'online':online,'latest':latest,'supported_actuators':['pump','light'] if tomato else ['pump','light','fan','mist'],'hardware_mode':tomato})
+  online=service.device_online(d) if tomato else bool(latest and time.time()-datetime.fromisoformat(latest['ts']).timestamp()<stale)
+  out.append({**d,'online':online,'latest':latest,'metric_units':{'level':'cm','ec':'mS/cm'} if tomato else d.get('metric_units',{}),'supported_actuators':['pump','light'] if tomato else ['pump','light','fan','mist'],'hardware_mode':tomato})
  return sorted(out,key=lambda d:d['id'])
 @app.post('/api/devices')
 def add_device(v:Device,u=Depends(teacher)):
@@ -142,7 +148,7 @@ def snapshot(id:str,u=Depends(editor)):
 @app.get('/api/mqtt')
 def mqtt_config(u=Depends(actor)):
  c=service.config(True) if u['role']=='admin' else {}
- return {'config':c,'connected':service.connected,'error':service.error}
+ return {'config':c,**service.status()}
 @app.put('/api/mqtt')
 def save_mqtt(v:MQTTConfig,u=Depends(admin)):
  d=v.model_dump()
@@ -164,6 +170,7 @@ class ProtocolCommand(BaseModel):
 @app.post('/api/devices/{id}/protocol-commands')
 def protocol_command(id:str,v:ProtocolCommand,u=Depends(editor)):
  obj('devices',id)
+ if v.cmd=='08':teacher(u)
  if not v.confirmed:raise HTTPException(422,'下发协议命令前必须确认')
  try:return service.protocol_command(id,v.cmd,v.data)
  except ValueError as e:raise HTTPException(409,str(e))

@@ -62,14 +62,16 @@ export YOLO_DEVICE=cpu
 
 ## 真实设备
 
-MQTT 的权威配置为 `backend/config/mqtt.yaml`，已写入用户提供的番茄种植架 V1.1 协议。前端不再提供 MQTT 配置入口。服务地址、账号密码留待实际填写。
+MQTT 的权威配置为 `backend/config/mqtt.yaml`，已按用户提供的番茄种植架 r19 固件配置本机 EMQX，消息格式沿用 V1.1。前端仅提供只读通信状态；平台密码通过 YAML 中的引用从本机环境读取。
 
 1. 编辑后端 YAML 的连接参数；通过管理员接口 `POST /api/mqtt/test` 测试、`POST /api/mqtt/connect` 建立连接。
 2. 编辑目标设备，把数据来源切换为 `mqtt`。
-3. 番茄种植架按 V1.1 每 10 秒发布遥测；平台订阅 result/state/telemetry/availability，向 set 发布控制。
+3. 番茄种植架 r19 按 V1.1 消息格式每 15 秒发布遥测；平台订阅 result/state/telemetry/availability，向 set 发布控制，所有方向 QoS 0。
 4. 番茄架的 AI 模式通过 CMD 08 交给固件执行；平台不套用旧版阈值自动策略。先以手动模式联调。
 
 实际设备、班级、茬次和课程由用户录入；遥测必须来自 MQTT，识别必须来自已配置模型，知识须录入实际来源。
+
+当前已配置本机 EMQX 接入，后端自动连接并等待订阅确认；网页只读展示通信状态，控制面板支持固件九种命令。配置和网络要求见 [本机 EMQX 接入](docs/local-emqx.md)。
 
 默认仅绑定回环地址。已提供并配置真实 YOLO 权重；硬件联调和模型准确率须分别用实际设备、带标注的番茄照片验收。
 

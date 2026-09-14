@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 _config=yaml.safe_load((Path(__file__).resolve().parents[1]/"backend/config/mqtt.yaml").read_text())
-_config["mqtt"].update(protocol="legacy",telemetry_topic="hydroponics/+/telemetry",command_topic="hydroponics/{device_id}/command",ack_topic="hydroponics/+/ack")
+_config["mqtt"].update(protocol="legacy",username="",password="",autoconnect=False,telemetry_topic="hydroponics/+/telemetry",command_topic="hydroponics/{device_id}/command",ack_topic="hydroponics/+/ack")
 _config_path=Path(tempfile.mkdtemp(prefix="hydro-mqtt-yaml-"))/"mqtt.yaml"
 _config_path.write_text(yaml.safe_dump(_config,allow_unicode=True))
 os.environ["HYDRO_MQTT_CONFIG"]=str(_config_path)

@@ -13,6 +13,7 @@ class MQTTConfig(BaseModel):
  protocol:Literal['legacy','tomato_v1_1']='legacy'
  host:str=Field(max_length=253);port:int=Field(ge=1,le=65535);client_id:str=Field(min_length=1,max_length=100);username:str='';password:str='';tls:bool=True;qos:Literal[0,1,2]=1;keepalive:int=Field(default=120,ge=10,le=3600)
  device_id:str='HY-001'
+ autoconnect:bool=False
  telemetry_topic:str;command_topic:str;ack_topic:str
  state_topic:str='tomato_hnsw0001/state';availability_topic:str='tomato_hnsw0001/availability'
  @field_validator('host')

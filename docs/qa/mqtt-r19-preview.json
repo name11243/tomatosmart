@@ -1,0 +1,10 @@
+{
+  "isolated": true,
+  "all_nine_commands": true,
+  "qos": 0,
+  "retained_commands": false,
+  "mode_permission_checked": true,
+  "offline_controls_disabled": true,
+  "errors": [],
+  "checked_at": "2026-09-14T16:07:39.309Z"
+}

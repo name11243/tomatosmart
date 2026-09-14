@@ -1,12 +1,13 @@
 mqtt:
   protocol: tomato_v1_1
-  host: broker.emqx.io
+  host: host.docker.internal
   port: 1883
   client_id: hydroponic-backend-tomato_hnsw0001
-  username: ""
-  password: ""
+  username: tomatosmart-platform
+  password: "${TOMATO_MQTT_PASSWORD}"
   tls: false
-  qos: 1
+  qos: 0
+  autoconnect: true
   keepalive: 120
   device_id: HY-001
   telemetry_topic: tomato_hnsw0001/telemetry
@@ -17,7 +18,7 @@ mqtt:
 protocol:
   name: 番茄种植架 MQTT 通信协议
   version: '1.1'
-  firmware: tomato_main.py Build r18
+  firmware: 2026-09-03-esp32s3-stable-mqtt-r19
   root: tomato_hnsw0001
   device_client_id_pattern: tomato-esp32s3-<芯片唯一ID>
   encoding: UTF-8
@@ -25,8 +26,8 @@ protocol:
   - request_id
   - cmd
   - data
-  telemetry_interval_seconds: 10
-  telemetry_stale_seconds: 35
+  telemetry_interval_seconds: 15
+  telemetry_stale_seconds: 45
   result_timeout_seconds: 30
   subscriptions:
     telemetry:
@@ -35,20 +36,20 @@ protocol:
       retain: false
     result:
       config_key: ack_topic
-      qos: 1
+      qos: 0
       retain: false
     state:
       config_key: state_topic
-      qos: 1
+      qos: 0
       retain: true
     availability:
       config_key: availability_topic
-      qos: 1
+      qos: 0
       retain: true
   publish:
     set:
       config_key: command_topic
-      qos: 1
+      qos: 0
       retain: false
   telemetry_fields:
     air_temperature:

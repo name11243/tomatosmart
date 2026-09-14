@@ -1,0 +1,50 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from services.vector_store import search_docs
+from services.knowledge_graph import query_relations
+from services.llm_client import generate_answer
+app = FastAPI()
+class AskBody(BaseModel):
+    question: str
+    top_k: int = 3
+def normalize_sources(docs):
+    sources = []
+    for i, doc in enumerate(docs, 1):
+        sources.append({"id": f"KB-{i:03d}",
+                        "title": doc["title"],
+                        "score": round(doc["score"], 3)})
+    return sources
+def build_context(docs, relations):
+    chunks = []
+    for i, doc in enumerate(docs, 1):
+        chunks.append(f"[KB-{i:03d}] {doc['text']}")
+    if relations:
+        graph_text = "；".join([f"{a}-{r}-{b}" for a, r, b in relations])
+        chunks.append(f"[KG] {graph_text}")
+    return "\n".join(chunks)
+def make_prompt(question, context):
+    return f'''你是种植知识助手。
+只允许依据给定资料回答，不得补充资料外事实。
+资料：
+{context}
+问题：{question}
+要求：
+1. 先给出可能原因；
+2. 再给出建议；
+3. 每条结论标注来源编号；
+4. 资料不足时明确回答“依据不足”。'''
+@app.post("/api/ask")
+async def ask(body: AskBody):
+    question = body.question.strip()
+    if not question:
+        return {"ok": False, "message": "question is empty"}
+    docs = search_docs(question, top_k=body.top_k)
+    entities = [d["entity"] for d in docs if d.get("entity")]
+    relations = query_relations(entities)
+    context = build_context(docs, relations)
+    prompt = make_prompt(question, context)
+    answer = await generate_answer(prompt)
+    sources = normalize_sources(docs)
+    return {"ok": True, "question": question,
+            "answer": answer, "sources": sources,
+            "graph_relations": relations}

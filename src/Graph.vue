@@ -1,0 +1,16 @@
+<script setup>
+import {ref,onMounted,onBeforeUnmount,watch} from 'vue';
+import * as echarts from './charts';
+const props=defineProps({data:Object});const emit=defineEmits(['select','source']);const root=ref();let chart,observer;let zoom=1;
+const glyphs={ 'seedling-fill':'\uf0d4','drop-fill':'\uec69','pulse-line':'\uf035','temp-cold-line':'\uf1f2','leaf-fill':'\ueea2','plant-line':'\uf007','flask-line':'\ued3f','settings-3-fill':'\uf0e5','file-text-line':'\ued0f'};
+const wrapName=(n)=>n.category===5?n.name:n.name.split('\n').map(s=>s.length>8?s.match(/.{1,5}/g).join('\n'):s).join('\n');
+const colors=['#b6dfb6','#d7eaff','#ffd18a','#f5dfa4','#c7e9c6','#f4f8fa'];
+const strokes=['#69b77b','#83b7f1','#f49721','#d1ac4c','#6eba80','#d3e4ea'];
+function render(){if(!chart)return;if(!props.data){chart.clear();return;}const small=root.value.clientWidth<500;const nodeSize=small?47:88;const fontSize=small?9:14;
+ chart.setOption({animationDuration:350,tooltip:{trigger:'item',formatter:p=>p.dataType==='edge'?p.data.relation:(p.data.full_name||p.data.name).replaceAll('\n',' ')},series:[{type:'graph',layout:'none',roam:true,zoom,scaleLimit:{min:.6,max:2.5},left:'11%',right:'10%',top:'6%',bottom:'17%',symbolSize:nodeSize,emphasis:{focus:'adjacency'},edgeSymbol:['none','arrow'],edgeSymbolSize:7,lineStyle:{color:'#6b7d80',width:1.2,opacity:1},label:{show:true,color:'#143b38',fontSize:14,fontWeight:600,lineHeight:20},edgeLabel:{show:!small,fontSize:small?7:12,color:'#67777a',rotate:0,formatter:p=>p.data.relation},data:props.data.nodes.map(n=>({...n,symbol:n.category===5?'roundRect':'circle',symbolSize:n.category===5?(small?[66,38]:[112,52]):nodeSize,itemStyle:{color:colors[n.category],borderColor:strokes[n.category],borderWidth:1.3},label:{formatter:(n.category===5?'{doc|'+glyphs['file-text-line']+'} ':'')+((n.icon&&n.category!==5)?'{icon|'+(glyphs[n.icon]||'')+'}\n':'')+wrapName(n),fontWeight:n.category===5?400:600,fontSize:n.category===5?(small?9:12):fontSize,lineHeight:small?12:18,rich:{doc:{fontFamily:'remixicon',fontSize:small?12:22,color:'#244c59'},icon:{fontFamily:'remixicon',fontSize:small?16:27,lineHeight:small?20:31,color:n.category===1?'#377dab':'#3f8755'}}}})),links:props.data.edges.map(e=>({...e,relation:e.label,label:undefined}))}]},true);
+}
+function scale(v){zoom=Math.max(.6,Math.min(2,zoom+v));render()};function reset(){zoom=1;render()}
+onMounted(()=>{chart=echarts.init(root.value);chart.on('click',p=>{if(p.dataType==='edge')emit('select',p.data.relation);else if(p.data.category===5)emit('source',p.data.id);else emit('select',(p.data.full_name||p.data.name).replaceAll('\n',' '))});observer=new ResizeObserver(()=>{chart.resize();render()});observer.observe(root.value);render()});watch(()=>props.data,()=>{zoom=1;render()},{deep:true});onBeforeUnmount(()=>{observer?.disconnect();chart?.dispose()});
+defineExpose({image:()=>chart?.getDataURL({pixelRatio:2,backgroundColor:'#fff'})});
+</script>
+<template><div class="graph-wrap"><div ref="root" class="graph-canvas" role="img" aria-label="可缩放知识图谱：作物、环境、问题、原因、措施和来源关联"/><div class="graph-tools"><button aria-label="放大图谱" @click="scale(.2)"><i class="ri-add-line"/></button><button aria-label="缩小图谱" @click="scale(-.2)"><i class="ri-subtract-line"/></button><button aria-label="适应画布" @click="reset"><i class="ri-fullscreen-line"/> 适应画布</button></div></div></template>

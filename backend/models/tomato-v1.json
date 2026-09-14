@@ -1,0 +1,18 @@
+{
+  "file": "tomato-v1.pt",
+  "original_filename": "best(3).pt",
+  "sha256": "d850966ea298360f50aa9da8340e8296619c38088ec4376936bdd5adc10f9719",
+  "size_bytes": 18466915,
+  "crop": "tomato",
+  "crop_source": "user_confirmed",
+  "training_experiment": "strawberry_exp",
+  "architecture": "YOLOv8n",
+  "task": "detect",
+  "ultralytics_version": "8.3.223",
+  "classes": {
+    "0": "Unripe",
+    "1": "Half-ripe",
+    "2": "Ripe"
+  },
+  "accuracy_validation": "pending_real_tomato_images"
+}

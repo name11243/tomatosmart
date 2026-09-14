@@ -1,0 +1,23 @@
+{
+  "before_restart": {
+    "backend": "neo4j",
+    "connected": true,
+    "database": "neo4j",
+    "nodes": 19,
+    "relationships": 18
+  },
+  "offline_response": {
+    "detail": "Neo4j 图数据库不可用，请检查连接；未使用本地替代图谱。"
+  },
+  "offline_status": 503,
+  "after_restart": {
+    "backend": "neo4j",
+    "connected": true,
+    "database": "neo4j",
+    "nodes": 19,
+    "relationships": 18
+  },
+  "query_mode": "neo4j_graph",
+  "question_nodes": 11,
+  "question_relationships": 10
+}

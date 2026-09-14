@@ -1,0 +1,262 @@
+mqtt:
+  protocol: tomato_v1_1
+  host: broker.emqx.io
+  port: 1883
+  client_id: hydroponic-backend-tomato_hnsw0001
+  username: ""
+  password: ""
+  tls: false
+  qos: 1
+  keepalive: 120
+  device_id: HY-001
+  telemetry_topic: tomato_hnsw0001/telemetry
+  command_topic: tomato_hnsw0001/set
+  ack_topic: tomato_hnsw0001/result
+  state_topic: tomato_hnsw0001/state
+  availability_topic: tomato_hnsw0001/availability
+protocol:
+  name: 番茄种植架 MQTT 通信协议
+  version: '1.1'
+  firmware: tomato_main.py Build r18
+  root: tomato_hnsw0001
+  device_client_id_pattern: tomato-esp32s3-<芯片唯一ID>
+  encoding: UTF-8
+  request_required:
+  - request_id
+  - cmd
+  - data
+  telemetry_interval_seconds: 10
+  telemetry_stale_seconds: 35
+  result_timeout_seconds: 30
+  subscriptions:
+    telemetry:
+      config_key: telemetry_topic
+      qos: 0
+      retain: false
+    result:
+      config_key: ack_topic
+      qos: 1
+      retain: false
+    state:
+      config_key: state_topic
+      qos: 1
+      retain: true
+    availability:
+      config_key: availability_topic
+      qos: 1
+      retain: true
+  publish:
+    set:
+      config_key: command_topic
+      qos: 1
+      retain: false
+  telemetry_fields:
+    air_temperature:
+      target: air_temp
+      unit: °C
+      scale: 1
+      decimals: 1
+    air_humidity:
+      target: humidity
+      unit: '%RH'
+      scale: 1
+      decimals: 1
+    light_intensity:
+      target: light
+      unit: lx
+      scale: 1
+      decimals: 0
+    hydroponic_temperature:
+      target: water_temp
+      unit: °C
+      scale: 1
+      decimals: 1
+    water_tank_level:
+      target: level
+      unit: cm
+      scale: 1
+      decimals: 1
+    ph:
+      target: ph
+      unit: ''
+      scale: 1
+      decimals: 2
+    ec:
+      target: ec
+      unit: μS/cm
+      target_unit: mS/cm
+      scale: 0.001
+      firmware_formula: RS485原始值 / 20.15
+  commands:
+    '01':
+      name: red_brightness
+      data: value
+      type: integer
+      min: 0
+      max: 100
+      manual_only: true
+    '02':
+      name: blue_brightness
+      data: value
+      type: integer
+      min: 0
+      max: 100
+      manual_only: true
+    '03':
+      name: pump_state
+      data: value
+      type: integer
+      min: 0
+      max: 1
+      manual_only: true
+    '04':
+      name: light_master_state
+      data: value
+      type: integer
+      min: 0
+      max: 1
+      manual_only: true
+      on_red: 100
+      on_blue: 100
+      off_red: 0
+      off_blue: 0
+    '05':
+      name: fill_light_mode
+      data: value
+      type: integer
+      min: 1
+      max: 5
+      manual_only: false
+    '06':
+      name: pump_interval_min
+      data: value
+      type: integer
+      min: 0
+      max: 65535
+      unit: min
+      manual_only: false
+      tjc: n4
+      persist: true
+    '07':
+      name: pump_duration_sec
+      data: value
+      type: integer
+      min: 0
+      max: 65535
+      unit: s
+      manual_only: false
+      tjc: n5
+      persist: true
+    08:
+      name: control_mode
+      data: value
+      type: integer
+      min: 0
+      max: 1
+      manual_only: false
+    09:
+      name: rest_schedule
+      manual_only: false
+      fields:
+        start_hour:
+          min: 0
+          max: 23
+        start_minute:
+          min: 0
+          max: 59
+        end_hour:
+          min: 0
+          max: 23
+        end_minute:
+          min: 0
+          max: 59
+      crosses_midnight_rule: end_minutes < start_minutes
+  actuator_commands:
+    pump: '03'
+    light: '04'
+  unsupported_actuators:
+  - fan
+  - mist
+  control_modes:
+    0: 手动模式
+    1: AI智控模式
+  fill_light_modes:
+    1:
+      stage: 出苗模式
+      tjc_button: bt0
+      red: 50
+      blue: 50
+      ratio: '1:1'
+    2:
+      stage: 壮苗模式
+      tjc_button: bt1
+      red: 70
+      blue: 70
+      ratio: '1:1'
+    3:
+      stage: 营养生长
+      tjc_button: bt2
+      red: 80
+      blue: 60
+      ratio: '4:3'
+    4:
+      stage: 开花/坐果
+      tjc_button: bt3
+      red: 90
+      blue: 45
+      ratio: '2:1'
+    5:
+      stage: 果实膨大
+      tjc_button: bt4
+      red: 100
+      blue: 35
+      ratio: 约3:1
+  result:
+    correlation:
+    - request_id
+    - cmd
+    successful_when:
+      success: true
+      applied: true
+    fields:
+    - request_id
+    - cmd
+    - success
+    - applied
+    - data
+    - message
+    note: result 是 ESP32 的处理结果，不等同于独立的物理传感器动作确认。
+  state_fields:
+  - control_mode
+  - red_brightness
+  - blue_brightness
+  - pump_state
+  - light_master_state
+  - fill_light_mode
+  - pump_interval_min
+  - pump_duration_sec
+  - rest_schedule
+  rest_schedule_fields:
+  - start_hour
+  - start_minute
+  - end_hour
+  - end_minute
+  - crosses_midnight
+  availability:
+    field: status
+    online: online
+    offline: offline
+    retained: true
+    offline_via_last_will: true
+  errors:
+    INVALID_JSON: 消息不是合法 JSON 对象
+    MISSING_FIELD: 缺少 request_id、cmd、data 或必要参数
+    UNKNOWN_COMMAND: cmd 未定义
+    VALUE_OUT_OF_RANGE: value 类型或取值范围不正确
+    INVALID_TIME: 休息时间字段超出时分范围
+    MANUAL_MODE_REQUIRED: AI智控模式禁止直接灯光或水泵控制
+    INTERNAL_ERROR: ESP32 内部处理异常
+  firmware_rs485:
+    repeats_per_control_frame: 3
+    minimum_interval_ms: 300
+    responsibility: ESP32 固件执行，平台不重复重发三次

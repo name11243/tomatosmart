@@ -1,0 +1,71 @@
+{
+  "text": "多源感知水培智控系统\n知识驱动探究空间\n水培设备 01\n2026年9月14日\n种植知识库\n教师\n总览\n物联网\n成熟度\n档案\nAI日志\n知识库\n课程\n设备\n成熟度管理中心\n\n识别果实成熟度，保留原图、标注与采摘依据。\n\n拍照识别\n上传照片并识别\n番茄成熟度模型已就绪 · 可识别未成熟、半成熟、成熟\n最低置信度\n65%\n恢复默认 65%\n\n低于阈值的目标不显示，也不计入统计。新识别使用此阈值；历史记录仅筛选显示，导出保留原始存档。\n\n生成采摘报告\n保存识别结果\n导出识别照片\n识别结果\n09/14 21:51\n果实数量\n4个\n未成熟\n0个\n半成熟\n0个\n成熟\n4个\n平均置信度\n88.4%\n\n显示 4 / 5 个目标 · 已过滤 1 个低置信度目标\n\n原图\n1 · 95.8%\n2 · 90.4%\n3 · 90.3%\n4 · 77.0%\n筛选标注图 · ≥65% · 编号对应下方结果\n果实编号\t成熟度\t置信度\t采摘建议\n1\t成熟\t95.8%\t人工复核后采摘\n2\t成熟\t90.4%\t人工复核后采摘\n3\t成熟\t90.3%\t人工复核后采摘\n4\t成熟\t77.0%\t人工复核后采摘\n01 · 09/14 21:51\n\n显示 4 / 5 个果实 · 模型推理\n\n查看\n加入对比\n01 · 09/14 21:51\n\n显示 4 / 5 个果实 · 模型推理\n\n查看\n加入对比\n当前环境\npH —\n·\nEC — mS/cm\n·\n水温 —°C\n·\n等待遥测\n前往物联网检查\n MQTT · 未连接",
+  "error": "",
+  "buttons": [
+    {
+      "text": "拍照识别",
+      "disabled": false
+    },
+    {
+      "text": "上传照片并识别",
+      "disabled": false
+    }
+  ],
+  "health": {
+    "ok": true,
+    "demo": true,
+    "real_only": true,
+    "model_configured": true,
+    "model": {
+      "configured": true,
+      "ready": true,
+      "state": "ready",
+      "error": null,
+      "name": "tomato-v1.pt",
+      "sha256": "d850966ea298360f50aa9da8340e8296619c38088ec4376936bdd5adc10f9719",
+      "task": "detect",
+      "device": "cpu",
+      "classes": [
+        {
+          "id": 0,
+          "name": "Unripe",
+          "label": "未成熟"
+        },
+        {
+          "id": 1,
+          "name": "Half-ripe",
+          "label": "半成熟"
+        },
+        {
+          "id": 2,
+          "name": "Ripe",
+          "label": "成熟"
+        }
+      ]
+    }
+  },
+  "filterChecks": [
+    {
+      "threshold": 65,
+      "expected": 4,
+      "actual": 4
+    },
+    {
+      "threshold": 90,
+      "expected": 3,
+      "actual": 3
+    },
+    {
+      "threshold": 95,
+      "expected": 1,
+      "actual": 1
+    },
+    {
+      "threshold": 10,
+      "expected": 5,
+      "actual": 5
+    }
+  ],
+  "errors": [],
+  "checked_at": "2026-09-14T14:00:39.358Z"
+}

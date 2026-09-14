@@ -1,0 +1,8 @@
+{
+  "local_capture": true,
+  "session_recovered_after_401": true,
+  "remote_http_snapshot": true,
+  "isolated_recognition_count": 2,
+  "errors": [],
+  "checked_at": "2026-09-14T14:41:00.917Z"
+}

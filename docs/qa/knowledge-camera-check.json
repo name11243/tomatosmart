@@ -1,0 +1,252 @@
+{
+  "defaultAddress": "http://10.186.117.102:500/snapshot",
+  "cameraError": "无法获取摄像头照片；后端已依次请求 1 个地址：\n· http://10.186.117.102:500/snapshot → 该地址可达，但没有服务监听这个端口（连接被拒绝）\n地址可达但端口没有服务：核对摄像头的端口，并确认设备已经启动拍照服务。",
+  "changedAddressRequested": true,
+  "graphNodes": true,
+  "answer": {
+    "question": "MQTT 使用哪些主题？",
+    "device": "HY-001",
+    "batch": "01",
+    "environment": {
+      "device": "HY-001",
+      "batch": "01",
+      "ts": "2026-09-15T11:54:36.294577+00:00",
+      "source": "mqtt",
+      "values": {
+        "air_temp": 33,
+        "humidity": 33.5,
+        "light": 137,
+        "ec": 0.07707,
+        "ph": 4.44,
+        "level": 8.5,
+        "water_temp": 22.3
+      },
+      "units": {
+        "ec": "mS/cm",
+        "level": "cm"
+      },
+      "age_seconds": 6520,
+      "is_stale": true
+    },
+    "items": [
+      {
+        "id": "KB-PROJECT-MQTT-TOPICS",
+        "title": "MQTT 主题与消息方向",
+        "crop": "番茄",
+        "problem": "MQTT 主题配置",
+        "cause": "收发方向或 QoS 与固件要求不一致",
+        "measure": "按资料核对 set、result、state、telemetry、availability 五个主题与 QoS 0",
+        "tags": [
+          "MQTT",
+          "主题",
+          "QoS",
+          "订阅",
+          "发布"
+        ],
+        "environments": [],
+        "content": "## 主题\n\n|方向|配置键|主题|QoS|Retain|\n|---|---|---|---|---|\n|平台发布|command_topic|tomato_hnsw0001/set|0|false|\n|平台订阅|ack_topic|tomato_hnsw0001/result|0|false|\n|平台订阅|state_topic|tomato_hnsw0001/state|0|true|\n|平台订阅|telemetry_topic|tomato_hnsw0001/telemetry|0|false|\n|平台订阅|availability_topic|tomato_hnsw0001/availability|0|true|\n\n固件订阅 set，平台向 set 发布。r19 明确要求所有方向使用 QoS 0。`autoconnect: true` 使后端启动时自动连接、断线后自动重连；收到 SUBACK 后才显示订阅完成。启动和重连只订阅数据，不自动下发控制。",
+        "source": "项目资料 · docs/mqtt-protocol.md · 主题（待核验）",
+        "source_path": "docs/mqtt-protocol.md",
+        "source_sha256": "ffc06fa37f6e0240927e753145601a91fa65ee9789eea22129faac189202df5e",
+        "source_kind": "project_document",
+        "verified": false,
+        "created_at": "2026-09-15T13:37:07.169879+00:00",
+        "owner": "teacher"
+      },
+      {
+        "id": "KB-PROJECT-MQTT-CONNECTION",
+        "title": "Docker 后端与本机 EMQX 连接",
+        "crop": "番茄",
+        "problem": "MQTT 连接配置",
+        "cause": "容器和硬件访问同一 Broker 时使用不同的网络地址",
+        "measure": "核对 Docker 后端地址与硬件地址是否到达同一本机 Broker，避免 Client ID 冲突",
+        "tags": [
+          "EMQX",
+          "Docker",
+          "连接",
+          "Client ID",
+          "Broker"
+        ],
+        "environments": [],
+        "content": "## 本机连接\n\n本机原生 EMQX 监听 `0.0.0.0:1883`；Docker 后端与硬件都经 `10.186.117.102:1883` 连接同一个 Broker，`backend/config/mqtt.yaml` 的 `mqtt.host` 即该地址。非 Docker Python 部署可把 YAML 的 `mqtt.host` 改为 `127.0.0.1`。Keep Alive 120 秒、TLS 关闭，与固件的 MQTT 3.1.1 TCP 客户端一致。\n\n后端使用独立的 `tomatosmart-platform` 账号和 Client ID，避免与 ESP32 的 `tomato-esp32s3-<芯片唯一ID>` 冲突。YAML 的密码引用 `${TOMATO_MQTT_PASSWORD}` 由后端从本机环境解析；实际密码仅在忽略提交的 `.env` 中。配置保存保留引用，API 不返回实际密码。EMQX 用户与主题权限配置见 [本机 EMQX 接入](local-emqx.md)。\n\n`mqtt.device_id: HY-001` 是本系统设备与固定根主题的绑定，可修改为设备管理中的实际编号。协议报文不含 device_id，不能继续按旧示例假定消息体有设备编号。",
+        "source": "项目资料 · docs/mqtt-protocol.md · 本机连接（待核验）",
+        "source_path": "docs/mqtt-protocol.md",
+        "source_sha256": "ffc06fa37f6e0240927e753145601a91fa65ee9789eea22129faac189202df5e",
+        "source_kind": "project_document",
+        "verified": false,
+        "created_at": "2026-09-15T13:37:07.483548+00:00",
+        "owner": "teacher"
+      }
+    ],
+    "graph": {
+      "nodes": [
+        {
+          "id": "hydroponic-real:crop:516f6a50c4a8e39c2e1d",
+          "name": "番茄",
+          "category": 0,
+          "x": 220,
+          "y": 230,
+          "full_name": "番茄",
+          "icon": "seedling-fill",
+          "neo4j_uid": "hydroponic-real:crop:516f6a50c4a8e39c2e1d"
+        },
+        {
+          "id": "hydroponic-real:problem:426caa7534b1b8df9515",
+          "name": "MQTT 主题配置",
+          "category": 2,
+          "x": 390,
+          "y": 100,
+          "full_name": "MQTT 主题配置",
+          "icon": "",
+          "neo4j_uid": "hydroponic-real:problem:426caa7534b1b8df9515"
+        },
+        {
+          "id": "hydroponic-real:problem:8d357809fdf0446044b5",
+          "name": "MQTT 连接配置",
+          "category": 2,
+          "x": 390,
+          "y": 360,
+          "full_name": "MQTT 连接配置",
+          "icon": "",
+          "neo4j_uid": "hydroponic-real:problem:8d357809fdf0446044b5"
+        },
+        {
+          "id": "hydroponic-real:cause:5e829cdd228c4f77b3e5",
+          "name": "容器和硬件访问同一 Broker 时使用不同的网络地址",
+          "category": 3,
+          "x": 560,
+          "y": 145,
+          "full_name": "容器和硬件访问同一 Broker 时使用不同的网络地址",
+          "icon": "leaf-fill",
+          "neo4j_uid": "hydroponic-real:cause:5e829cdd228c4f77b3e5"
+        },
+        {
+          "id": "hydroponic-real:cause:940c436712b7a11426c5",
+          "name": "收发方向或 QoS 与固件要求不一致",
+          "category": 3,
+          "x": 560,
+          "y": 320,
+          "full_name": "收发方向或 QoS 与固件要求不一致",
+          "icon": "leaf-fill",
+          "neo4j_uid": "hydroponic-real:cause:940c436712b7a11426c5"
+        },
+        {
+          "id": "hydroponic-real:measure:5e829cdd228c4f77b3e5",
+          "name": "核对 Docker 后端地址与硬件地址是否到达同一本机 Broker，避免 Client ID 冲突",
+          "category": 4,
+          "x": 735,
+          "y": 145,
+          "full_name": "核对 Docker 后端地址与硬件地址是否到达同一本机 Broker，避免 Client ID 冲突",
+          "icon": "settings-3-fill",
+          "neo4j_uid": "hydroponic-real:measure:5e829cdd228c4f77b3e5"
+        },
+        {
+          "id": "hydroponic-real:measure:940c436712b7a11426c5",
+          "name": "按资料核对 set、result、state、telemetry、availability 五个主题与 QoS 0",
+          "category": 4,
+          "x": 735,
+          "y": 320,
+          "full_name": "按资料核对 set、result、state、telemetry、availability 五个主题与 QoS 0",
+          "icon": "settings-3-fill",
+          "neo4j_uid": "hydroponic-real:measure:940c436712b7a11426c5"
+        },
+        {
+          "id": "KB-PROJECT-MQTT-CONNECTION",
+          "name": "KB-PROJECT-MQTT-CONNECTION\n待核验资料",
+          "category": 5,
+          "x": 935,
+          "y": 40,
+          "full_name": "Docker 后端与本机 EMQX 连接",
+          "icon": "file-text-line",
+          "neo4j_uid": "hydroponic-real:source:5e829cdd228c4f77b3e5"
+        },
+        {
+          "id": "KB-PROJECT-MQTT-TOPICS",
+          "name": "KB-PROJECT-MQTT-TOPICS\n待核验资料",
+          "category": 5,
+          "x": 935,
+          "y": 450,
+          "full_name": "MQTT 主题与消息方向",
+          "icon": "file-text-line",
+          "neo4j_uid": "hydroponic-real:source:940c436712b7a11426c5"
+        }
+      ],
+      "edges": [
+        {
+          "source": "hydroponic-real:crop:516f6a50c4a8e39c2e1d",
+          "label": "出现问题",
+          "type": "HAS_PROBLEM",
+          "target": "hydroponic-real:problem:8d357809fdf0446044b5"
+        },
+        {
+          "source": "hydroponic-real:problem:8d357809fdf0446044b5",
+          "label": "可能原因",
+          "type": "HAS_CAUSE",
+          "target": "hydroponic-real:cause:5e829cdd228c4f77b3e5"
+        },
+        {
+          "source": "hydroponic-real:cause:5e829cdd228c4f77b3e5",
+          "label": "来源支持",
+          "type": "SUPPORTED_BY",
+          "target": "KB-PROJECT-MQTT-CONNECTION"
+        },
+        {
+          "source": "hydroponic-real:cause:5e829cdd228c4f77b3e5",
+          "label": "建议措施",
+          "type": "ADDRESSED_BY",
+          "target": "hydroponic-real:measure:5e829cdd228c4f77b3e5"
+        },
+        {
+          "source": "hydroponic-real:crop:516f6a50c4a8e39c2e1d",
+          "label": "出现问题",
+          "type": "HAS_PROBLEM",
+          "target": "hydroponic-real:problem:426caa7534b1b8df9515"
+        },
+        {
+          "source": "hydroponic-real:problem:426caa7534b1b8df9515",
+          "label": "可能原因",
+          "type": "HAS_CAUSE",
+          "target": "hydroponic-real:cause:940c436712b7a11426c5"
+        },
+        {
+          "source": "hydroponic-real:cause:940c436712b7a11426c5",
+          "label": "来源支持",
+          "type": "SUPPORTED_BY",
+          "target": "KB-PROJECT-MQTT-TOPICS"
+        },
+        {
+          "source": "hydroponic-real:cause:940c436712b7a11426c5",
+          "label": "建议措施",
+          "type": "ADDRESSED_BY",
+          "target": "hydroponic-real:measure:940c436712b7a11426c5"
+        }
+      ],
+      "backend": "neo4j"
+    },
+    "mode": "local_ai",
+    "generation": {
+      "statements": [
+        {
+          "text": "MQTT 使用的主题包括：发布命令的 command_topic (tomato_hnsw0001/set)，订阅结果的 ack_topic (tomato_hnsw0001/result)，订阅状态的 state_topic (tomato_hnsw0001/state)，订阅遥测数据的 telemetry_topic (tomato_hnsw0001/telemetry)，以及订阅可用性的 availability_topic (tomato_hnsw0001/availability)。",
+          "source_ids": [
+            "KB-PROJECT-MQTT-TOPICS"
+          ]
+        }
+      ],
+      "follow_up": [
+        "请确认当前设备实际运行的固件版本是否仍要求所有方向使用 QoS 0，因为资料中标注为待核验项目。",
+        "请提供当前 MQTT Broker 的实际监听地址及后端配置中的 mqtt.host 设置，以验证连接拓扑。"
+      ],
+      "provider": "ollama",
+      "model": "qwen3.5:4b",
+      "elapsed_seconds": 4.04,
+      "notice": "本地 AI 根据所列资料整理；引用可追溯不代表结论已经核验。"
+    },
+    "message": "",
+    "owner": "teacher",
+    "id": "d789a3ae5c3d4292",
+    "created_at": "2026-09-15T13:43:20.341421+00:00"
+  },
+  "errors": [],
+  "checkedAt": "2026-09-15T13:43:29.165Z"
+}

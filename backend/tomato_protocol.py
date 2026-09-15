@@ -24,14 +24,13 @@ def ingest(service,topic,data,retained=False):
         if retained:raise ValueError('拒绝保留的 telemetry 消息，等待设备实时采样')
         values={}
         for wire,field in spec['telemetry_fields'].items():
-            value=data.get(wire)
-            if type(value) not in (int,float) or not math.isfinite(value):raise ValueError('遥测字段无效：'+wire)
-            values[field['target']]=value*field['scale']
-        from .schemas import TelemetryValues
-        # Water level is cm, not percent; validate separately without an invented tank depth.
-        level=values['level']
-        if level<0:raise ValueError('水位不能为负数')
-        TelemetryValues(**{**values,'level':0})
+            if wire not in data:raise ValueError('遥测字段缺失：'+wire)
+            value=data[wire]
+            if value is not None and (type(value) not in (int,float) or not math.isfinite(value)):
+                raise ValueError('遥测字段无效：'+wire)
+            values[field['target']]=None if value is None else value*field['scale']
+        from .schemas import TomatoTelemetryValues
+        values=TomatoTelemetryValues(**values).model_dump()
         sample=s.add_telemetry(device,d['batch'],values,'mqtt',units={'level':'cm','ec':'mS/cm'})
         s.patch('devices',device,{'source':'mqtt','protocol':'tomato_v1_1','last_seen':sample['ts'],
             'metric_units':{'level':'cm','ec':'mS/cm'},'mqtt_available':True,

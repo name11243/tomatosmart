@@ -1,5 +1,10 @@
-import os, tempfile, io
-os.environ['HYDRO_DATA_DIR']=tempfile.mkdtemp(prefix='hydro-tests-')
+import os, tempfile, io, shutil
+from pathlib import Path
+TEST_ROOT=Path(tempfile.mkdtemp(prefix='hydro-tests-'))
+os.environ['HYDRO_DATA_DIR']=str(TEST_ROOT/'data')
+os.environ['HYDRO_ENV_FILE']=str(TEST_ROOT/'.env')
+os.environ['HYDRO_MQTT_CONFIG']=str(TEST_ROOT/'mqtt.yaml')
+shutil.copy2(Path(__file__).parents[1]/'backend/config/mqtt.yaml',os.environ['HYDRO_MQTT_CONFIG'])
 os.environ['HYDRO_DEMO']='1'
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -13,12 +18,12 @@ def client(role='teacher'):
 def test_auth_and_role_boundaries():
  c=TestClient(app);assert c.get('/api/devices').status_code==401
  student=client('student');assert student.post('/api/devices',json={'id':'DENIED','name':'no'}).status_code==403
- assert student.post('/api/mqtt/connect',json={}).status_code==403
+ assert student.post('/api/mqtt/disconnect',json={}).status_code==200
  parent=client('parent');assert parent.post('/api/devices/HY-001/snapshot',json={}).status_code==403
 
 def test_knowledge_changes_with_question_and_no_fake_answer():
  c=client();a=c.post('/api/ask',json={'question':'番茄叶片发黄怎么办？'}).json()
- assert [x['id'] for x in a['items']]==['KB-001','KB-002'];assert len(a['graph']['nodes'])==11
+ assert [x['id'] for x in a['items']]==['KB-001','KB-002'];assert len(a['graph']['nodes'])==8  # No inferred environment nodes.
  b=c.post('/api/ask',json={'question':'液位不足怎么办'}).json();assert b['items'][0]['id']=='KB-003'
  assert not c.post('/api/ask',json={'question':'火星宇航服'}).json()['items']
  assert c.post('/api/ask',json={'question':''}).status_code==422
@@ -42,10 +47,15 @@ def test_courses_submission_review_and_photos():
  assert client('parent').get('/api/submissions').json()[0]['evaluation']
 
 def test_mqtt_config_validation_secret_redaction_and_disconnect():
- c=client('admin');config=service.config(True);config.update(host='127.0.0.1',port=18884,tls=False,password='test-only-secret')
- assert c.put('/api/mqtt',json=config).status_code==200
+ c=client('teacher');config=service.config(True);config.update(host='127.0.0.1',port=18884,client_id='test-platform-client',username='test-platform-user',tls=False,qos=0,keepalive=90,password='test-only-secret')
+ saved=c.put('/api/mqtt',json=config);assert saved.status_code==200
+ for role in ['student','admin','parent']:
+  same={**config,'password':''};assert client(role).put('/api/mqtt',json=same).status_code==200
+ assert saved.json()['username']=='test-platform-user' and saved.json()['client_id']=='test-platform-client' and saved.json()['keepalive']==90
  returned=c.get('/api/mqtt').json()['config'];assert returned['password']=='' and returned['password_set']
  assert 'test-only-secret' not in c.get('/api/mqtt').text
+ assert 'test-only-secret' not in Path(os.environ['HYDRO_MQTT_CONFIG']).read_text(encoding='utf-8')
+ assert 'TOMATO_MQTT_PASSWORD=test-only-secret' in Path(os.environ['HYDRO_ENV_FILE']).read_text(encoding='utf-8')
  config['password']='';c.put('/api/mqtt',json=config);assert service.config()['password']=='test-only-secret'
  config['command_topic']='hydroponics/+/command';assert c.put('/api/mqtt',json=config).status_code==422
  config['command_topic']='hydroponics/{device_id}/command';config['host']='mqtt://bad';assert c.put('/api/mqtt',json=config).status_code==422
@@ -57,8 +67,10 @@ def test_control_never_claims_physical_execution_without_ack():
  r=c.post('/api/devices/HY-002/commands',json={'actuator':'pump','state':True,'confirmed':True});assert r.status_code==409
  s.patch('devices','HY-002',{'source':d['source']})
 
-def test_telemetry_and_ack_reject_wrong_identity_and_invalid_numbers():
+def test_telemetry_and_ack_reject_wrong_identity_and_invalid_numbers(monkeypatch):
  import pytest
+ config={**service.config(),'protocol':'legacy','telemetry_topic':'hydroponics/+/telemetry','ack_topic':'hydroponics/+/ack'}
+ monkeypatch.setattr(service,'config',lambda:config)
  good={k:v for k,_,_,v in s.METRICS}
  service.ingest('hydroponics/HY-001/telemetry',{'device_id':'HY-001','values':good})
  with pytest.raises(ValueError):service.ingest('hydroponics/HY-002/telemetry',{'device_id':'HY-001','values':good})

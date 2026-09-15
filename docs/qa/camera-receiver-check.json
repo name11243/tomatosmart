@@ -1,0 +1,40 @@
+{
+  "checked_at": "2026-09-15T14:11:50.898Z",
+  "receiver": {
+    "ready": true,
+    "has_photo": true,
+    "captured_at": null,
+    "received_at": "2026-09-15T14:11:31.704107+00:00",
+    "age_seconds": 19.2,
+    "stale": false,
+    "stale_after_seconds": 60,
+    "bytes": 97280,
+    "sha256": "cf303267d021ebede85dbb612136f5e9e70855bad4dc512829d54ab8b05d46fd",
+    "content_type": "image/jpeg",
+    "width": 1280,
+    "height": 960,
+    "sender": "172.18.0.1",
+    "source": "http_upload",
+    "message": "已收到设备上传的照片。"
+  },
+  "frames": [
+    {
+      "received_at": "2026-09-15T14:11:10.925824+00:00",
+      "receiver_waiting": false,
+      "source_url": "http://10.186.117.102:500/snapshot",
+      "captured_at": null,
+      "stale": false,
+      "has_image": true
+    },
+    {
+      "received_at": "2026-09-15T14:11:31.704107+00:00",
+      "receiver_waiting": false,
+      "source_url": "http://10.186.117.102:500/snapshot",
+      "captured_at": null,
+      "stale": false,
+      "has_image": true
+    }
+  ],
+  "browser_errors": [],
+  "auto_refresh_verified": true
+}

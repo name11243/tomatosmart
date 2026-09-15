@@ -9,6 +9,17 @@ class TelemetryValues(BaseModel):
  def finite(cls,v):
   if not math.isfinite(v):raise ValueError('参数必须是有限数值')
   return v
+class TomatoTelemetryValues(BaseModel):
+ """r19 reports explicit null when a sensor has no reading; every key is required."""
+ model_config=ConfigDict(extra='forbid',strict=True,allow_inf_nan=False)
+ air_temp:float|None=Field(ge=-50,le=100)
+ humidity:float|None=Field(ge=0,le=100)
+ light:float|None=Field(ge=0,le=300000)
+ ec:float|None=Field(ge=0,le=100)
+ ph:float|None=Field(ge=0,le=14)
+ level:float|None=Field(ge=0)  # cm; no assumed tank depth or percentage cap.
+ water_temp:float|None=Field(ge=-10,le=100)
+
 class MQTTConfig(BaseModel):
  protocol:Literal['legacy','tomato_v1_1']='legacy'
  host:str=Field(max_length=253);port:int=Field(ge=1,le=65535);client_id:str=Field(min_length=1,max_length=100);username:str='';password:str='';tls:bool=True;qos:Literal[0,1,2]=1;keepalive:int=Field(default=120,ge=10,le=3600)
@@ -20,6 +31,11 @@ class MQTTConfig(BaseModel):
  @classmethod
  def hostonly(cls,v):
   if '://' in v or '/' in v or ' ' in v:raise ValueError('填写主机名或 IP，不包含协议和路径')
+  return v
+ @field_validator('password')
+ @classmethod
+ def password_line(cls,v):
+  if any(char in v for char in ['\r','\n','\x00']):raise ValueError('密码不能包含换行或空字符')
   return v
  @model_validator(mode='after')
  def topics(self):
@@ -37,9 +53,18 @@ class MQTTConfig(BaseModel):
 class Command(BaseModel):
  actuator:Literal['pump','light','fan','mist'];state:bool;confirmed:bool=False
 class Question(BaseModel):
- device:str='HY-001'
+ device:str=''
  question:str=Field(min_length=1,max_length=1000)
+ mode:Literal['neo4j_graph','local_ai']='neo4j_graph'
+ model:str=Field(default='',max_length=200)
+ answer_id:str|None=None
+ @field_validator('question')
+ @classmethod
+ def nonblank_question(cls,v):
+  if not v.strip():raise ValueError('请输入问题')
+  return v.strip()
 class Record(BaseModel):
+ answer_id:str|None=None
  units:dict={}
  title:str=Field(min_length=1,max_length=200);content:str=Field(default='',max_length=20000);type:str='观察';device:str='HY-001';batch:str='2026-A';photos:list[str]=[];values:dict={};sources:list[str]=[];task_id:str|None=None
 class Device(BaseModel):

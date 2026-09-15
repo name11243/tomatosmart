@@ -33,10 +33,14 @@ services:
       HYDRO_REAL_ONLY: "1"
       HYDRO_DATA_DIR: /app/data
       HYDRO_MQTT_CONFIG: /app/backend/config/mqtt.yaml
+      HYDRO_ENV_FILE: /app/.env.local
       YOLO_MODEL_PATH: /app/backend/models/tomato-v1.pt
       YOLO_DEVICE: cpu
+      HYDRO_OLLAMA_URL: ${HYDRO_OLLAMA_DOCKER_URL:-http://host.docker.internal:11434}
+      HYDRO_LLM_MODEL: ${HYDRO_LLM_MODEL:-qwen3.5:4b}
     volumes:
       - ./data/app:/app/data
+      - ./.env:/app/.env.local
       - ./backend/config:/app/backend/config
       - ./backend/models:/app/backend/models:ro
     ports:
@@ -58,8 +62,11 @@ services:
     image: hydroponic-web:local
     container_name: hydroponic-web
     ports:
-      - "127.0.0.1:5176:80"
-      - "127.0.0.1:5173:80"
+      # Published on every interface: the host IP changes when the PC joins the camera hotspot,
+      # and a hard-coded address would make `docker compose up` fail to bind.
+      - "5176:80"
+      - "5173:80"
+      - "500:500"
     depends_on:
       api:
         condition: service_healthy

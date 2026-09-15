@@ -2,11 +2,11 @@
 
 以用户最新提供的 ESP32-S3 固件 `2026-09-03-esp32s3-stable-mqtt-r19` 为准，消息格式沿用 V1.1。硬件代码不作修改。原始文件包含凭据，不提交到公开仓库；文件 SHA-256 为 `c5075abe3c7f869655fe23fadab55c815355c4228b04e6339f67d7b71ebe2b48`。
 
-配置文件：`backend/config/mqtt.yaml`。后端直接读取此 YAML；前端无 MQTT 配置表单或入口，不再从 SQLite settings 覆盖 MQTT 配置。连接操作使用管理员后端接口 `/api/mqtt/test`、`/api/mqtt/connect` 和 `/api/mqtt/disconnect`（POST）。可通过 `HYDRO_MQTT_CONFIG` 指定其他 YAML 路径。
+配置文件：`backend/config/mqtt.yaml`。后端直接读取此 YAML；物联网页向所有已登录账户提供完整 MQTT 配置抽屉，保存仍直接落到 YAML，不使用 SQLite settings。连接操作使用后端接口 `/api/mqtt/test`、`/api/mqtt/connect` 和 `/api/mqtt/disconnect`（POST）。可通过 `HYDRO_MQTT_CONFIG` 指定其他 YAML 路径。
 
 ## 本机连接
 
-本机原生 EMQX 监听 1883；Docker 后端通过 `host.docker.internal:1883` 连接，硬件保留 `192.168.31.217:1883`。两者必须到达同一个 Broker。非 Docker Python 部署应把 YAML 的 `mqtt.host` 改为 `127.0.0.1`。Keep Alive 120 秒、TLS 关闭，与固件的 MQTT 3.1.1 TCP 客户端一致。
+本机原生 EMQX 监听 `0.0.0.0:1883`；Docker 后端与硬件都经 `192.168.31.217:1883` 连接同一个 Broker，`backend/config/mqtt.yaml` 的 `mqtt.host` 即该地址。非 Docker Python 部署可把 YAML 的 `mqtt.host` 改为 `127.0.0.1`。Keep Alive 120 秒、TLS 关闭，与固件的 MQTT 3.1.1 TCP 客户端一致。
 
 后端使用独立的 `tomatosmart-platform` 账号和 Client ID，避免与 ESP32 的 `tomato-esp32s3-<芯片唯一ID>` 冲突。YAML 的密码引用 `${TOMATO_MQTT_PASSWORD}` 由后端从本机环境解析；实际密码仅在忽略提交的 `.env` 中。配置保存保留引用，API 不返回实际密码。EMQX 用户与主题权限配置见 [本机 EMQX 接入](local-emqx.md)。
 

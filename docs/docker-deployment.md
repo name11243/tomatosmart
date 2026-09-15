@@ -2,17 +2,19 @@
 
 部署目录：`D:\xxxxxxxxxxxxxxxx\tomatosmart`。执行 `docker compose up -d --build` 启动前端、FastAPI 和 Neo4j。
 
-网页：http://127.0.0.1:5176/#knowledge ，同时兼容 http://127.0.0.1:5173/ 。API：http://127.0.0.1:8016/docs 。Neo4j 浏览器：http://127.0.0.1:7476/ 。
+网页：http://192.168.31.217:5176/#knowledge ，同时兼容 http://192.168.31.217:5173/ 。web 容器按 `docker-compose.yml` 在所有主机接口发布端口，同网段手机可通过当前局域网地址打开。API：http://127.0.0.1:8016/docs （仍只绑回环）。Neo4j 浏览器：http://127.0.0.1:7476/ 。
 
 默认保留源项目本机免密角色登录，`HYDRO_REAL_ONLY=1`。没有预置示例数据，未配置模型时不能进行真实识别。MQTT 继续使用 `backend/config/mqtt.yaml`，不会自动向设备下发命令。
 
-MQTT Broker 使用 Windows 原生 EMQX，API 容器经 `host.docker.internal:1883` 自动连接并订阅四个固定上报主题。固件保持 `192.168.31.217:1883`；电脑须处于可接收该地址访问的网络。认证、主题方向和复用脚本见 [本机 EMQX 接入](local-emqx.md)。
+MQTT Broker 使用 Windows 原生 EMQX，API 容器与硬件都经 `192.168.31.217:1883` 连接同一个 Broker，并订阅四个固定上报主题。电脑须处于该 Wi-Fi 网络 `NANANA`（Windows 显示为 `NANANA 2`）且持有该地址。认证、主题方向和复用脚本见 [本机 EMQX 接入](local-emqx.md)。
 
 番茄成熟度模型使用 `backend/models/tomato-v1.pt`（用户提供的 `best(3).pt`），目录只读挂载到 API 容器。镜像固定使用 Ultralytics 8.3.223、PyTorch 2.9.0 CPU 和 torchvision 0.24.0 CPU，无需显卡。权重未打包进镜像，迁移部署时须同时复制 `backend/models/`。类别和权重校验值见同目录 JSON 清单。
 
-识别入口：http://127.0.0.1:5176/#maturity 。`GET /api/health` 返回 `model.ready`、类别和 SHA-256；未加载成功时真实识别返回 503。模型只在后端配置。上传前需在设备管理登记实际设备和茬次，识别结果与原图、标注图、权重信息一并留存。测试使用隔离临时数据库，不向真实档案加入测试图片或识别记录。
+识别入口：http://192.168.31.217:5176/#maturity 。`GET /api/health` 返回 `model.ready`、类别和 SHA-256；未加载成功时真实识别返回 503。模型只在后端配置。上传前需在设备管理登记实际设备和茬次，识别结果与原图、标注图、权重信息一并留存。测试使用隔离临时数据库，不向真实档案加入测试图片或识别记录。
 
 应用数据在 `data/app`，图谱在 `data/neo4j`，日志在 `data/neo4j-logs`，均位于 D 盘。Neo4j 随机密码保存在 `.env`。三个服务均设置 `restart: unless-stopped`。
+
+ESP32-P4 照片推送复用上述三个服务：`web` 额外发布 `500:500`，只将 `/snapshot` 代理到现有 `api`。POST 接收图片、GET 读取最新图片，照片持久化在 `data/app/hydro.db`，无需第四个 Docker 应用或容器。当前设备上传地址为 `http://192.168.31.217:500/snapshot`；同一子网入站防火墙规则由 `scripts/configure-camera-ingress.ps1` 管理，见 [摄像头说明](camera.md)。
 
 修改后端后执行 `docker compose up -d --build api`；修改前端后执行 `docker compose up -d --build web`。前端使用构建产物及同源 API 代理。
 

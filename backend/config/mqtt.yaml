@@ -1,15 +1,15 @@
 mqtt:
   protocol: tomato_v1_1
-  host: host.docker.internal
+  host: 192.168.31.217
   port: 1883
   client_id: hydroponic-backend-tomato_hnsw0001
-  username: tomatosmart-platform
-  password: "${TOMATO_MQTT_PASSWORD}"
+  username: admin
+  password: ${TOMATO_MQTT_PASSWORD}
   tls: false
   qos: 0
-  autoconnect: true
   keepalive: 120
   device_id: HY-001
+  autoconnect: true
   telemetry_topic: tomato_hnsw0001/telemetry
   command_topic: tomato_hnsw0001/set
   ack_topic: tomato_hnsw0001/result

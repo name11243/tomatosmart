@@ -80,4 +80,4 @@ def aggregate(device,seconds,bucket,batch=''):
  if batch:where+=' AND batch=?';params.append(batch)
  with db() as c:
   rows=c.execute(f"SELECT CAST(strftime('%s',ts) AS INTEGER)/{int(bucket)}*{int(bucket)} AS t,COUNT(*) AS samples,{cols} FROM telemetry WHERE {where} GROUP BY t ORDER BY t",params).fetchall()
- return [{'ts':datetime.fromtimestamp(r['t'],timezone.utc).isoformat(),'samples':r['samples'],'values':{k:round(r[k],2) for k,_,_,_ in METRICS}} for r in rows]
+ return [{'ts':datetime.fromtimestamp(r['t'],timezone.utc).isoformat(),'samples':r['samples'],'values':{k:round(r[k],2) if r[k] is not None else None for k,_,_,_ in METRICS}} for r in rows]

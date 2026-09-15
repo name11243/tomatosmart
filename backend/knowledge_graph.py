@@ -1,6 +1,7 @@
 """Neo4j is the authoritative knowledge and relationship store (no fallback)."""
 import json
 import os
+import re
 from hashlib import sha256
 from pathlib import Path
 
@@ -41,12 +42,18 @@ class KnowledgeGraph:
     def upsert(self, item):
         crop = item.get('crop') or '番茄'
         k = {**item, 'crop':crop}
-        envs = k.get('environments') or ['pH', 'EC', '水温']
+        envs = k.get('environments') or []
         entities = [dict(uid=self.key('environment', e), name=e) for e in envs]
         self.query('''
             MERGE (k:HydroNode:HydroKnowledge {uid:$source_id})
             SET k.scope=$scope, k.id=$id, k.name=$id, k.category=5,
-                k.doc=$doc, k.tags=$tags, k.problem=$problem, k.verified=$verified
+                k.doc=$doc, k.tags=$tags, k.problem=$problem, k.verified=$verified,
+                k.environment_ids=$environment_ids, k.title=$title
+            WITH k
+            OPTIONAL MATCH (old:Cause)-[:SUPPORTED_BY]->(k)
+            OPTIONAL MATCH (:Problem)-[old_link:HAS_CAUSE]->(old)
+            DELETE old_link
+            WITH DISTINCT k
             MERGE (crop:HydroNode:Crop {uid:$crop_id})
             SET crop.scope=$scope, crop.name=$crop, crop.category=0
             MERGE (p:HydroNode:Problem {uid:$problem_id})
@@ -66,6 +73,7 @@ class KnowledgeGraph:
             MERGE (e)-[r:AFFECTS]->(crop) SET r.label='影响生长'
             ''', source_id=self.key('source', k['id']), id=k['id'], doc=json.dumps(k, ensure_ascii=False),
             tags=k.get('tags', []), problem=k['problem'], verified=bool(k.get('verified')),
+            environment_ids=[e['uid'] for e in entities], title=k['title'],
             crop_id=self.key('crop', crop), crop=crop,
             problem_id=self.key('problem', crop+':'+k['problem']),
             cause_id=self.key('cause', k['id']), cause=k['cause'],
@@ -73,18 +81,30 @@ class KnowledgeGraph:
         return k
 
     def retrieve(self, question):
+        # Parameters only: model/user text never becomes executable Cypher.
+        normalized = question.lower()
+        for alias, term in {'黄叶':'发黄', '叶子黄':'叶片发黄', '水位':'液位', '酸碱度':'ph',
+                            '电导率':'ec', '消息主题':'主题', '拍照':'摄像头'}.items():
+            normalized = normalized.replace(alias, term)
+        grams = list(dict.fromkeys(re.findall(r'[a-z0-9_]+', normalized) +
+                     [part[i:i+2] for part in re.findall(r'[\u4e00-\u9fff]+', normalized)
+                      for i in range(len(part)-1)]))[:100]
         rows = self.query('''MATCH (crop:Crop {scope:$scope})-[:HAS_PROBLEM]->(p:Problem)
             -[:HAS_CAUSE]->(c:Cause)-[:SUPPORTED_BY]->(k:HydroKnowledge {scope:$scope})
             MATCH (c)-[:ADDRESSED_BY]->(m:Measure)
             WITH k,crop,p,c,m, reduce(score=0, tag IN k.tags |
-                score + CASE WHEN toLower($q) CONTAINS toLower(tag) THEN 2 ELSE 0 END)
-                + CASE WHEN $q CONTAINS p.name THEN 5 ELSE 0 END AS score
-            WHERE score>0 RETURN k.doc AS doc, crop.name AS crop, p.name AS problem,
-                c.name AS cause, m.name AS measure, score ORDER BY score DESC, k.id LIMIT 20''', q=question)
+                score + CASE WHEN tag<>crop.name AND tag<>'' AND toLower($q) CONTAINS toLower(tag) THEN 4 ELSE 0 END)
+                + CASE WHEN $q CONTAINS toLower(p.name) THEN 10 ELSE 0 END
+                + CASE WHEN toLower(coalesce(k.title,'')) CONTAINS $q OR toLower(k.id)=$q THEN 10 ELSE 0 END
+                AS exact, size([g IN $grams WHERE toLower(p.name+' '+coalesce(k.title,'')+' '+c.name) CONTAINS g]) AS overlap
+            WITH k,crop,p,c,m,exact,overlap WHERE exact>0 OR overlap>=2
+            RETURN k.doc AS doc, crop.name AS crop, p.name AS problem,
+                c.name AS cause, m.name AS measure, exact*10+overlap AS score
+            ORDER BY score DESC, k.id LIMIT 6''', q=normalized, grams=grams)
         if not rows:
             return []
         items = [{**json.loads(r['doc']), **{key:r[key] for key in ('crop','problem','cause','measure')}} for r in rows]
-        return [k for k in items if k['problem']==items[0]['problem']][:2]
+        return list({k['id']:k for k in items}.values())
 
     def graph(self, items):
         if not items:
@@ -95,6 +115,7 @@ class KnowledgeGraph:
             WHERE k.id IN $ids AND k.scope=$scope
             MATCH action=(c)-[:ADDRESSED_BY]->(m:Measure)
             OPTIONAL MATCH env=(e:Environment)-[:AFFECTS]->(crop)
+            WHERE e.uid IN coalesce(k.environment_ids,[])
             RETURN [n IN nodes(path)+nodes(action)+coalesce(nodes(env),[]) | properties(n)] AS nodes,
                 [r IN relationships(path)+relationships(action)+coalesce(relationships(env),[]) |
                 {source:startNode(r).uid, target:endNode(r).uid, label:r.label, type:type(r)}] AS edges
@@ -109,7 +130,7 @@ class KnowledgeGraph:
         measure_keys={e['target']:source_keys.get(e['source'],'') for e in edges.values() if e['type']=='ADDRESSED_BY'}
         output=[]
         icons={0:'seedling-fill', 1:'drop-fill', 2:'', 3:'leaf-fill', 4:'settings-3-fill', 5:'file-text-line'}
-        xs={0:220,1:70,2:375,3:520,4:665,5:655}
+        xs={0:220,1:70,2:390,3:560,4:735,5:935}
         ids={uid:n.get('id',uid) for uid,n in nodes.items()}
         for category in range(6):
             group=sorted((n for n in nodes.values() if n['category']==category), key=lambda n:source_keys.get(n['uid'],measure_keys.get(n['uid'],n.get('id',n['name']))))
@@ -118,16 +139,17 @@ class KnowledgeGraph:
                 if category in (3,4) and len(group)==2:y=145+i*175
                 name=n['name']
                 if category==4:name=name.replace('营养液 ','').replace('检查','检查\n')
-                if category==5:name+='\n'+('知识来源' if n.get('verified') else '待核验资料')
+                if category==5:name+='\n'+('已核验资料' if n.get('verified') else '待核验资料')
                 output.append({'id':ids[n['uid']], 'name':name, 'category':category,
-                    'x':xs[category], 'y':y, 'full_name':n['name'], 'icon':({'EC':'pulse-line','水温':'temp-cold-line'}.get(n['name'],icons[category])), 'neo4j_uid':n['uid']})
+                    'x':xs[category], 'y':y, 'full_name':n.get('title') or n['name'], 'icon':({'EC':'pulse-line','水温':'temp-cold-line'}.get(n['name'],icons[category])), 'neo4j_uid':n['uid']})
         return {'nodes':output, 'edges':[{**e,'source':ids[e['source']],'target':ids[e['target']]} for e in edges.values()], 'backend':'neo4j'}
 
     def status(self):
         counts=self.query('''MATCH (n:HydroNode {scope:$scope})
             OPTIONAL MATCH (n)-[r]->(:HydroNode {scope:$scope})
             RETURN count(DISTINCT n) AS nodes, count(r) AS relationships''')[0]
-        return {'backend':'neo4j','connected':True,'database':self.database,**counts}
+        sources=self.query('MATCH (k:HydroKnowledge {scope:$scope}) RETURN count(k) AS sources')[0]['sources']
+        return {'backend':'neo4j','connected':True,'database':self.database,'sources':sources,**counts}
 
 
 kg=KnowledgeGraph()

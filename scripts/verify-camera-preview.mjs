@@ -17,7 +17,7 @@ ws.onmessage=event=>{
 function send(method,params={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}))})}
 async function evaluate(expression){const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result.value}
 async function until(expression){const end=Date.now()+20000;while(Date.now()<end){if(await evaluate(expression))return;await new Promise(resolve=>setTimeout(resolve,100))}throw new Error('Timed out: '+expression)}
-const api=async(path,body)=>evaluate(`(async()=>{const r=await fetch('/api'+${JSON.stringify(path)},{method:${JSON.stringify(body===undefined?'GET':'POST')},headers:{'Content-Type':'application/json'},body:${body===undefined?'undefined':JSON.stringify(JSON.stringify(body))}});if(!r.ok)throw Error(await r.text());return r.json()})()`);
+const api=async(path,body,method)=>evaluate(`(async()=>{const r=await fetch('/api'+${JSON.stringify(path)},{method:${JSON.stringify(method||(body===undefined?'GET':'POST'))},headers:{'Content-Type':'application/json'},body:${body===undefined?'undefined':JSON.stringify(JSON.stringify(body))}});if(!r.ok)throw Error(await r.text());return r.json()})()`);
 async function click(text,selector='button'){await evaluate(`(()=>{const b=[...document.querySelectorAll(${JSON.stringify(selector)})].find(b=>b.innerText.trim()===${JSON.stringify(text)});if(!b||b.disabled)throw Error('Button unavailable: '+${JSON.stringify(text)});b.click()})()`)}
 try{
  await send('Runtime.enable');await send('Network.enable');await send('Page.enable');
@@ -49,10 +49,18 @@ try{
 
  await click('远程摄像头');
  await until("!!document.getElementById('remote-camera-url')");
- await evaluate(`(()=>{const input=document.getElementById('remote-camera-url');input.value='http://${cameraIP}:8091/image';input.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+ // The dialog must open on the backend-configured address, not a hard-coded one.
+ const configuredAddress=(await api('/camera/config')).url;
+ assert.equal(await evaluate("document.getElementById('remote-camera-url').value"),configuredAddress);
+ await evaluate(`(()=>{const input=document.getElementById('remote-camera-url');input.value='http://${cameraIP}:8091/snapshot';input.dispatchEvent(new Event('input',{bubbles:true}))})()`);
  await click('连接摄像头','.camera-modal button');
  await until("document.querySelector('.camera-preview img')?.complete&&document.body.innerText.includes('本次获取：')");
  await until("!document.querySelector('.toast')");
+ // A saved address becomes the default the page requests from then on.
+ await click('保存为默认地址','.camera-modal button');
+ await until("document.body.innerText.includes('已保存为默认摄像头地址')");
+ assert.equal((await api('/camera/config')).url,`http://${cameraIP}:8091/snapshot`);
+ await until("[...document.querySelectorAll('.camera-modal button')].some(b=>b.innerText==='当前已是默认地址'&&b.disabled)");
  for(const [name,width,height] of [['desktop',1480,1050],['mobile',390,844]]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:name==='mobile'});
   await new Promise(resolve=>setTimeout(resolve,400));
@@ -64,8 +72,11 @@ try{
  records=await api('/recognitions');
  assert.equal(records.length,beforeRecords+2);
  assert.ok(records.every(record=>record.mode==='yolo'&&record.model.confidence_threshold===0.65));
+ // Leave the isolated QA camera container on its original configured address.
+ await api('/camera/config',{url:configuredAddress},'PUT');
+ assert.equal((await api('/camera/config')).url,configuredAddress);
  assert.deepEqual(errors,[]);
- const report={local_capture:true,session_recovered_after_401:unauthorized>0,remote_http_snapshot:true,isolated_recognition_count:records.length-beforeRecords,errors,checked_at:new Date().toISOString()};
+ const report={local_capture:true,session_recovered_after_401:unauthorized>0,remote_http_snapshot:true,camera_default_from_backend:true,camera_address_saved_and_restored:true,isolated_recognition_count:records.length-beforeRecords,errors,checked_at:new Date().toISOString()};
  await writeFile('docs/qa/camera-preview.json',JSON.stringify(report,null,2)+'\n');
  console.log(JSON.stringify(report));
 }finally{ws.close()}

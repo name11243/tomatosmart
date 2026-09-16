@@ -1,7 +1,7 @@
-"""Explicit, repeatable migration of existing local knowledge into Neo4j.
+"""Import older SQLite knowledge rows into the native Python graph.
 
 Run: .venv/bin/python -m backend.migrate_knowledge
-Existing Neo4j records win; they are never overwritten by old SQLite rows.
+Existing graph records win; they are never overwritten by old SQLite rows.
 """
 from . import store
 from .knowledge_graph import kg

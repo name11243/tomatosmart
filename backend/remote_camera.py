@@ -1,9 +1,8 @@
 """Read the camera service's latest photo without changing device settings.
 
-The backend runs inside a Docker container, so every failure has to say whether the
-address was refused by a reachable host, unreachable from the container's network, or
-answered something that is not a photo. The photo endpoint path is detected as well:
-the ESP32-P4 firmware answers `/image`, other camera services answer `/snapshot`.
+Failures distinguish an unreachable host, a refused port, and a response that is
+not a photo. The requested path remains authoritative for normal fetching; the
+explicit diagnostic action may also probe known photo endpoint paths.
 """
 import asyncio
 import base64
@@ -11,7 +10,6 @@ import hashlib
 import io
 import ipaddress
 import time
-from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 import httpx
 from fastapi import HTTPException
@@ -56,10 +54,6 @@ def default_url():
 
 def refresh_seconds():
     return camera_config.read()['refresh_seconds']
-
-
-def in_docker():
-    return Path('/.dockerenv').exists()
 
 
 def example_url():
@@ -200,16 +194,13 @@ def advice(attempts):
     if 'refused' in kinds:
         lines.append('地址可达但端口没有服务：核对摄像头的端口，并确认设备已经启动拍照服务。')
     if 'timeout' in kinds or 'unreachable' in kinds:
-        if in_docker():
-            lines.append('后端运行在 Docker 容器中：容器只能访问与宿主机路由可达的地址；如果摄像头是设备自带热点（默认 192.168.4.1），请先让运行 Docker 的这台电脑连上该热点，再重新检测。')
-        else:
-            lines.append('请让运行本系统的电脑与摄像头处于同一局域网，并核对设备 IP。')
+        lines.append('请让运行本系统的电脑与摄像头处于同一局域网，并核对设备 IP。')
     if 'empty' in kinds:
         lines.append('设备还没有上传照片：确认 USB 摄像头已就绪，等待约 20 秒后重新检测。')
     if 'not_image' in kinds or 'redirect' in kinds:
         lines.append('该地址返回的是网页而不是照片：请填写直接返回照片的接口（固件为 /image，其他服务可能是 /snapshot）。')
     if 'dns' in kinds:
-        lines.append('请填写 IPv4 地址，或确认后端容器能解析该主机名。')
+        lines.append('请填写 IPv4 地址，或确认运行后端的电脑能解析该主机名。')
     return lines
 
 
@@ -250,7 +241,7 @@ async def probe(value, detect_endpoints=True):
         'captured_at': None,
         'fetched_at': store.now() if winner else None,
         'refresh_seconds': refresh_seconds(),
-        'backend': {'in_docker': in_docker()},
+        'backend': {'runtime': 'native_python'},
         'receiver_waiting': not winner and any(item['receiver_waiting'] for item in attempts),
         'received_at': winner['received_at'] if winner else None,
         'stale': winner['stale'] if winner else False,

@@ -94,7 +94,7 @@ onBeforeUnmount(()=>{alive=false;stop();if(preview.value)URL.revokeObjectURL(pre
    <p class="camera-help">默认地址：{{defaultAddress}}。支持修改 IP、端口及照片路径，点击连接后使用输入的新地址。</p>
    <label for="remote-camera-url">摄像头地址</label>
    <div class="camera-connect"><input id="remote-camera-url" v-model="remoteUrl" :placeholder="savedUrl||'http://设备IP:端口/snapshot'" :disabled="busy" @keydown.enter.prevent="connect"/><button class="primary" :disabled="fetching||probing||busy||!remoteUrl.trim()" @click="active?disconnect():connect()">{{fetching?'连接中…':active?'断开':'连接摄像头'}}</button></div>
-   <div class="camera-connect"><button :disabled="probing||busy||!remoteUrl.trim()" @click="diagnose">{{probing?'检测中…':'检测连接'}}</button><span class="camera-help">检测会从后端（Docker 容器内）依次请求该地址与 /snapshot、/image、/download，并说明每个地址的结果。</span></div>
+   <div class="camera-connect"><button :disabled="probing||busy||!remoteUrl.trim()" @click="diagnose">{{probing?'检测中…':'检测连接'}}</button><span class="camera-help">检测会由本机 Python 后端依次请求该地址与 /snapshot、/image、/download，并说明每个地址的结果。</span></div>
    <p class="camera-help">修改地址后点击“连接摄像头”即请求新地址。<button class="text-button" :disabled="busy||!remoteUrl.trim()||!addressChanged" @click="emit('save-address',remoteUrl.trim())">{{addressChanged?'保存为默认地址':'当前已是默认地址'}}</button>保存后写入后端配置，其他账号与刷新页面同样生效。</p>
   </template>
   <div v-if="mode==='remote'&&report" class="camera-report">

@@ -11,7 +11,7 @@ import paho.mqtt.client as mqtt
 from amqtt.broker import Broker
 
 assert os.environ.get('TOMATO_ISOLATED_QA')=='1'
-os.environ.update(HYDRO_DATA_DIR='/tmp/tomato-mqtt-preview-'+uuid.uuid4().hex,HYDRO_REAL_ONLY='1',HYDRO_DEMO='1',YOLO_MODEL_PATH='',NEO4J_REAL_SCOPE='mqtt-preview-'+uuid.uuid4().hex)
+os.environ.update(HYDRO_DATA_DIR='/tmp/tomato-mqtt-preview-'+uuid.uuid4().hex,HYDRO_REAL_ONLY='1',HYDRO_DEMO='1',YOLO_MODEL_PATH='')
 config=yaml.safe_load(Path('backend/config/mqtt.yaml').read_text())
 config['mqtt'].update(host='127.0.0.1',port=18889,username='',password='',device_id='MQTT-QA',autoconnect=True)
 Path('/tmp/mqtt-preview.yaml').write_text(yaml.safe_dump(config,allow_unicode=True))

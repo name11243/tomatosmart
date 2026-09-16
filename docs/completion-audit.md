@@ -17,7 +17,7 @@
 
 - MQTT connected=false，host_configured=false。
 - 以已有照片请求 demo=false 的识别：HTTP 409，提示未配置 YOLO_MODEL_PATH。
-- 问答已升级为 mode=neo4j_graph，真实 Neo4j 持久化、Cypher 检索和关系遍历；停库 503，不回退。未接入生成模型，不宣称生成式 RAG。
+- 问答使用 `mode=python_graph` 的本地邻接图检索和关系遍历，教师编辑资料写入本地 JSON；Ollama 仅根据检索来源生成带引用回答，无来源不生成诊断。
 
 不能以模拟检测框或本机 Broker 回执证明真实模型准确率与物理执行器动作。需要用户提供训练权重路径、类别含义、MQTT Broker 地址/端口/主题及可联调设备；密码由用户在配置页填写。
 

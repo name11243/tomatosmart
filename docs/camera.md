@@ -4,11 +4,11 @@
 
 ## ESP32-P4 推送到电脑
 
-当前使用一个 Docker Compose 项目中的原有三个容器：`web`（网页与代理）、`api`（业务和照片接收）、`neo4j`（知识图谱）。没有增加第四个容器。`web` 额外发布 `500:500`，此端口只代理 `/snapshot` 到 `api:8016/snapshot`；其它路径返回 404，原网页的 5176/5173 端口继续使用。
+项目使用原生 Python 进程。`backend.camera_ingress:app` 在 `0.0.0.0:500` 只挂载 `/snapshot`，主业务 API 仍在 `127.0.0.1:8016`，前端在 5176。`start.ps1` 与 `start.sh` 会同时启动这三个本地服务。
 
 ESP32-P4 发送 `POST http://192.168.31.217:500/snapshot`，兼容 `Content-Type: image/jpeg` / `image/png` 的原始图片、`application/octet-stream` 或一张图片的 `multipart/form-data`（文件字段名不限）。上传成功返回 HTTP 200 和 `ok: true`。硬件无需网页登录会话；Windows 防火墙规则 `TomatoSmart-Camera-500` 只允许同一子网访问 TCP 500，配置脚本为 `scripts/configure-camera-ingress.ps1`。
 
-`GET /snapshot` 返回最后成功上传的原始图片字节。最新图像及元数据原子写入现有 `data/app/hydro.db` 的 `camera_snapshot` 表，固定保留一条，不自动生成识别、照片档案或累计文件。坏图、超限或不完整上传会被拒绝并保留上一张有效照片。上限为 8 MB / 2400 万像素。
+`GET /snapshot` 返回最后成功上传的原始图片字节。最新图像及元数据原子写入 `backend/real-data/hydro.db` 的 `camera_snapshot` 表，固定保留一条，不自动生成识别、照片档案或累计文件。坏图、超限或不完整上传会被拒绝并保留上一张有效照片。上限为 8 MB / 2400 万像素。
 
 首次收到图片前，原图端点返回 404 并明确说明接收服务正在等待。网页连接后显示“服务已连通，等待 ESP32-P4 上传”，每 20 秒继续检查，收到后自动显示。接收时间由 `X-Camera-Received-At` 返回，超过 60 秒未更新时用 `X-Camera-Stale` 提示显示的是最后一张照片；两者都不代表设备采集时间。登录后 `GET /api/camera/receiver` 可查看接收状态。
 
@@ -22,7 +22,7 @@ ESP32-P4 发送 `POST http://192.168.31.217:500/snapshot`，兼容 `Content-Type
 
 `POST /api/camera/frame` 在未提供 `url` 时使用后端 YAML 默认值，传入 `url` 时使用该地址。`POST /api/camera/probe` 仅供主动“检测连接”，可探测同一主机的 `/snapshot`、`/image`、`/download`，列出实际请求和结果。诊断发现其他路径时，由用户点击“改用该地址”后连接。网络失败会区分连接被拒绝、超时与不可达；失败不显示替代照片。
 
-运行本系统的后端必须能访问该地址；照片由后端读取，所以浏览器不会直接跨域访问摄像头。当前支持 HTTP/HTTPS IPv4 照片地址，不接受本机回环、链路本地地址、文件协议或重定向。界面可连接、预览、手动刷新、断开、检测、识别或保存当前照片。连接失败会清除旧预览，并按“请求了哪些地址、各自结果、下一步怎么做”报错，预览本身不写入生长档案。页面轮询不会覆盖正在编辑的地址草稿，配置只在登录后读取一次。`docker-compose.yml` 的 web 端口发布到所有网卡，宿主机换网（例如电脑改连摄像头热点）后 `docker compose up` 仍能正常绑定端口。
+运行本系统的 Python 后端必须能访问该地址；照片由后端读取，所以浏览器不会直接跨域访问摄像头。当前支持 HTTP/HTTPS IPv4 照片地址，不接受本机回环、链路本地地址、文件协议或重定向。界面可连接、预览、手动刷新、断开、检测、识别或保存当前照片。连接失败会清除旧预览，并按“请求了哪些地址、各自结果、下一步怎么做”报错，预览本身不写入生长档案。页面轮询不会覆盖正在编辑的地址草稿，配置只在登录后读取一次。前端与照片入口监听全部本机接口，电脑切换网络后无需修改端口绑定。
 
 页面的“本次获取”是平台取得照片的时间；摄像头未提供实际采集时间时标记为未知，不把获取时间当作采集时间。读取端只发送 GET 请求读取照片，不修改 ESP32 的配置；接收端接受 ESP32 主动 POST 的图像。
 
@@ -30,4 +30,4 @@ ESP32-P4 发送 `POST http://192.168.31.217:500/snapshot`，兼容 `Content-Type
 
 前端收到 401 时，在原有免密角色模式下恢复当前角色并重试被拒绝的请求一次；密码模式仍要求重新登录。已拍照片暂存在当前页面内存中，已上传成功的照片复用原照片编号，避免因后续识别登录失败重复上传。刷新或关闭页面会释放尚未保存的照片。
 
-验证命令：`node --test tests/auth-recovery.test.mjs`；在隔离临时数据库的容器内运行 `python tests/verify_camera.py`（含默认地址读取、地址保存与权限校验）。测试使用临时 `HYDRO_CAMERA_CONFIG`，不修改仓库内的 `backend/config/camera.yaml`，也不向真实档案写入测试照片。
+验证命令：`node --test tests/auth-recovery.test.mjs` 和 `.venv/Scripts/python.exe tests/verify_camera.py`（含默认地址读取、地址保存与权限校验）。测试使用临时数据库与 `HYDRO_CAMERA_CONFIG`，不修改仓库内的 `backend/config/camera.yaml`，也不向真实档案写入测试照片。

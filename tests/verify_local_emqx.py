@@ -24,7 +24,7 @@ def check(username,password,topics=(),rejected=False,expected_qos=None):
         result['qos']=[reason.value for reason in reasons];subscribed.set()
     client.on_connect=on_connect;client.on_subscribe=on_subscribe
     try:
-        client.connect_timeout=4;client.connect('host.docker.internal',1883,30);client.loop_start()
+        client.connect_timeout=4;client.connect('127.0.0.1',1883,30);client.loop_start()
         assert connected.wait(8),'No CONNACK received'
         assert result['connected'] is not rejected,'Unexpected authentication result'
         if topics:

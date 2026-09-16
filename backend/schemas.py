@@ -55,7 +55,7 @@ class Command(BaseModel):
 class Question(BaseModel):
  device:str=''
  question:str=Field(min_length=1,max_length=1000)
- mode:Literal['neo4j_graph','local_ai']='neo4j_graph'
+ mode:Literal['python_graph','local_ai']='python_graph'
  model:str=Field(default='',max_length=200)
  answer_id:str|None=None
  @field_validator('question')

@@ -6,7 +6,7 @@
 
 ## 本机连接
 
-本机原生 EMQX 监听 `0.0.0.0:1883`；Docker 后端与硬件都经 `192.168.31.217:1883` 连接同一个 Broker，`backend/config/mqtt.yaml` 的 `mqtt.host` 即该地址。非 Docker Python 部署可把 YAML 的 `mqtt.host` 改为 `127.0.0.1`。Keep Alive 120 秒、TLS 关闭，与固件的 MQTT 3.1.1 TCP 客户端一致。
+本机原生 EMQX 监听 `0.0.0.0:1883`；原生 Python 后端与硬件都经 `192.168.31.217:1883` 连接同一个 Broker，`backend/config/mqtt.yaml` 的 `mqtt.host` 即该地址。本机调试也可使用 `127.0.0.1`，但与硬件联调时应保持局域网地址。Keep Alive 120 秒、TLS 关闭，与固件的 MQTT 3.1.1 TCP 客户端一致。
 
 后端使用独立的 `tomatosmart-platform` 账号和 Client ID，避免与 ESP32 的 `tomato-esp32s3-<芯片唯一ID>` 冲突。YAML 的密码引用 `${TOMATO_MQTT_PASSWORD}` 由后端从本机环境解析；实际密码仅在忽略提交的 `.env` 中。配置保存保留引用，API 不返回实际密码。EMQX 用户与主题权限配置见 [本机 EMQX 接入](local-emqx.md)。
 

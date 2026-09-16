@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
-from neo4j.exceptions import Neo4jError, DriverError
 from .knowledge_graph import kg
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
@@ -44,7 +43,7 @@ async def lifespan(app):
   try:await asyncio.to_thread(vision.load)
   except ModelUnavailable:s.log('模型加载失败','识别服务不可用，请检查后端权重与运行依赖。','error')
  try:kg.initialize()
- except (Neo4jError,DriverError):s.log('Neo4j 连接失败','知识图谱不可用，请检查数据库连接。','error')
+ except RuntimeError as exc:s.log('本地知识图谱加载失败',str(exc),'error')
  for d in s.allof('devices'):
   if d.get('mode')=='auto' and d.get('protocol')!='tomato_v1_1':s.patch('devices',d['id'],{'mode':'manual'})
  task=asyncio.create_task(ticker());mqtt_task=asyncio.create_task(service.maintain())
@@ -55,11 +54,6 @@ async def lifespan(app):
   await asyncio.to_thread(service.disconnect)
 app=FastAPI(title='多源感知水培智控系统 API',version='1.0.0',lifespan=lifespan)
 app.include_router(camera_receiver.router)
-@app.exception_handler(Neo4jError)
-@app.exception_handler(DriverError)
-async def graph_error(request,exc):
- return JSONResponse(status_code=503,content={'detail':'Neo4j 图数据库不可用，请检查连接；未使用本地替代图谱。'})
-
 @app.exception_handler(AIUnavailable)
 async def ai_error(request,exc):
  return JSONResponse(status_code=503,content={'detail':str(exc)})
@@ -219,8 +213,8 @@ def knowledge_status(u=Depends(actor)):return kg.status()
 @app.get('/api/ai/status')
 def ai_status(u=Depends(actor)):return local_ai.status()
 @app.get('/api/knowledge/graph')
-def knowledge_overview(q:str='',limit:int=20,u=Depends(actor)):
- items=kg.all(q);limit=max(1,min(limit,50))
+def knowledge_overview(q:str='',limit:int=50,u=Depends(actor)):
+ items=kg.all(q);limit=max(1,min(limit,100))
  return {'graph':kg.graph(items[:limit]),'items':items[:limit],'total':len(items),'limit':limit}
 @app.get('/api/knowledge')
 def knowledge(q:str='',u=Depends(actor)):return kg.all(q)
@@ -237,7 +231,7 @@ def ask(v:Question,u=Depends(actor)):
    environment.update(age_seconds=round(age),is_stale=age>45)
  items=retrieve(v.question)
  result={'question':v.question,'device':v.device,'batch':batch,'environment':environment,
-         'items':items,'graph':graph(items),'mode':'neo4j_graph','generation':None,
+         'items':items,'graph':graph(items),'mode':'python_graph','generation':None,
          'message':'' if items else '未检索到相关真实来源。请补充资料或换用资料中的关键词；本次未生成无来源的答案。'}
  if v.mode=='local_ai' and items:
   result['generation']=local_ai.generate(v.question,items,environment,v.model);result['mode']='local_ai'

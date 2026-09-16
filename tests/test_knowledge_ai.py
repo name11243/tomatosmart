@@ -1,11 +1,10 @@
-"""Contract checks use isolated Neo4j and HTTP transports, never production telemetry."""
+"""Contract checks use an isolated Python graph and HTTP transports."""
 import json
 from unittest.mock import Mock
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from neo4j.exceptions import ServiceUnavailable
 
 from backend import main, store as s
 from backend.knowledge_graph import kg
@@ -65,10 +64,10 @@ def test_offline_and_busy_models(monkeypatch):
         ai.lock.release()
 
 
-def test_real_graph_edits_rewire_and_preserve_snapshots(monkeypatch):
+def test_python_graph_edits_rewire_and_preserve_snapshots(monkeypatch):
     c = client()
     data = dict(title='隔离来源 A', crop='隔离作物', problem='独有卷曲故障', cause='隔离原因',
-                measure='检查样本', content='真实数据库集成测试文本', source='自动化测试',
+                measure='检查样本', content='本地图谱集成测试文本', source='自动化测试',
                 tags=['独有卷曲故障'], environments=['隔离环境'])
     created = c.post('/api/knowledge', json=data).json()
     fake_generation = {'model': 'isolated-http-contract', 'statements': [
@@ -93,7 +92,7 @@ def test_real_graph_edits_rewire_and_preserve_snapshots(monkeypatch):
     assert client('student').put('/api/knowledge/' + created['id'], json=data).status_code == 403
 
 
-def test_no_sources_offline_graph_and_offline_ai(monkeypatch):
+def test_no_sources_and_offline_ai_do_not_disable_python_graph(monkeypatch):
     c = client()
     generate = Mock(side_effect=AIUnavailable('本地模型离线'))
     monkeypatch.setattr(main.local_ai, 'generate', generate)
@@ -101,10 +100,10 @@ def test_no_sources_offline_graph_and_offline_ai(monkeypatch):
     assert response.status_code == 200 and response.json()['generation'] is None
     generate.assert_not_called()
     assert c.post('/api/ask', json={'question': '叶片发黄', 'mode': 'local_ai'}).status_code == 503
-    assert c.post('/api/ask', json={'question': '叶片发黄', 'mode': 'neo4j_graph'}).status_code == 200
-    monkeypatch.setattr(kg, 'query', Mock(side_effect=ServiceUnavailable('offline')))
-    assert c.get('/api/knowledge/graph').status_code == 503
-    assert c.post('/api/ask', json={'question': '叶片发黄'}).status_code == 503
+    result = c.post('/api/ask', json={'question': '叶片发黄', 'mode': 'python_graph'})
+    assert result.status_code == 200 and result.json()['mode'] == 'python_graph'
+    status = c.get('/api/knowledge/status').json()
+    assert status['connected'] and status['backend'] == 'python' and status['persistent']
 
 
 def test_query_without_device_and_no_cross_batch_environment():

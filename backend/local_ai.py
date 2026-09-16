@@ -1,4 +1,4 @@
-"""Local Ollama generation over source snapshots. No tools or generated Cypher."""
+"""Local Ollama generation over source snapshots; no tools or executable queries."""
 import json
 import os
 import threading

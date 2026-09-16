@@ -1,90 +1,82 @@
 # 多源感知水培智控系统
 
-基于用户选定的第 3 张 ImageGen 原型实现。前端 Vue 3，后端 Python FastAPI，业务数据使用 SQLite；知识与关系使用真实 Neo4j 持久化和 Cypher 查询，Paho MQTT 连接设备。默认打开知识图谱工作区。
-
-## 版本管理
-
-Git 仓库保存前后端源码、依赖锁定文件、部署配置、测试和项目文档。`.env`、数据库、上传照片等运行数据、依赖目录、构建产物及模型权重不纳入版本管理；模型来源与校验值保留在 `backend/models/tomato-v1.json`。在另一台电脑部署时，从 `.env.example` 创建本机配置，单独放置授权的 `backend/models/tomato-v1.pt` 权重；已有运行数据需要另行备份和迁移。
+番茄水培教学与设备管理原型。前端使用 Vue 3，后端使用原生 Python FastAPI，业务记录存入 SQLite，知识库使用纯 Python 邻接表图谱和本地 JSON 持久化，Paho MQTT 连接真实设备。项目不依赖 Docker 或 Neo4j。
 
 ## 本机入口
 
-- 前端：http://192.168.31.217:5176/#knowledge
+- 前端：http://127.0.0.1:5176/#knowledge
+- 局域网前端：http://192.168.31.217:5176/#knowledge
 - API 文档：http://127.0.0.1:8016/docs
+- ESP32-P4 照片推送：http://192.168.31.217:500/snapshot
 
-默认仅使用真实数据（`HYDRO_REAL_ONLY=1`）。业务记录存储在 `backend/real-data/`，Neo4j 使用独立 `hydroponic-real` 空间；旧演示数据库及图谱原样保留，但不用于当前页面。没有预置设备、遥测、课程或示例知识。当前本机角色登录与数据模式分离，免密角色不代表模拟数据。MQTT 参数仍由后端 YAML 管理。
+默认 `HYDRO_REAL_ONLY=1`，禁止模拟遥测和演示识别。业务数据、上传照片和知识编辑记录保存在 `backend/real-data/`；设备、茬次与实际课程由用户录入。随代码提供的番茄与健康教育知识是有来源状态的课程材料，不是设备数据，全部默认标记为待核验。
 
-## 启动
+## 安装与启动
 
-### 当前 Windows Docker 部署
+Windows：
 
-本机已改为三服务容器部署，项目位于 `D:\xxxxxxxxxxxxxxxx\tomatosmart`。使用 `docker compose up -d --build`，无需在 Windows 安装 Python 或 Node 依赖。
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+npm install
+Copy-Item .env.example .env
+.\start.ps1
+```
 
-网页使用 http://192.168.31.217:5176/#knowledge ，也兼容原入口 http://192.168.31.217:5173/ 。web 容器在所有主机接口发布网页端口，同网段手机可通过上述地址打开；API 仍只绑回环。容器版应用数据存储在 `data/app`，Neo4j 数据在 `data/neo4j`，均位于 D 盘。具体配置见 [Docker 部署说明](docs/docker-deployment.md)。下面保留源项目的非容器开发方式供参考。
-
-### 非容器开发方式
-
-需要运行 Docker Desktop。安装下述依赖后，先执行 `./scripts/start-neo4j.sh` 启动独立 Neo4j 并迁入已有知识，再启动两端；或直接使用 `./start.sh`。Neo4j 浏览器地址 http://127.0.0.1:7476，Bolt 地址 bolt://127.0.0.1:7689。自动生成的随机密码仅保存在本机 `.env`，未打包。
+Linux / macOS：
 
 ```sh
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 npm install
-.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8016
-# 第二个终端
-npm run dev -- --host 127.0.0.1 --port 5176 --strictPort
+cp .env.example .env
+./start.sh
 ```
 
-也可运行 `./start.sh`，它会使用已有依赖同时启动两端，Ctrl+C 停止本次启动的进程。生产前端 `npm run build` 输出 `dist/client`。Neo4j 使用独立容器 `hydroponic-neo4j` 和命名卷 `hydroponic-neo4j-data`。服务不可用时知识接口返回 503，不回退到写死节点。[图谱接入说明](docs/neo4j.md)。此项目还包含 Product Design 的静态托管构建骨架，但 MQTT 与数据库功能必须同时部署 FastAPI，不能仅发布静态页。
+启动脚本同时运行主 API（8016）、仅提供 `/snapshot` 的照片接收服务（500）和前端（5176）。前端监听所有本机接口，API 仅绑定回环地址。生产前端构建输出到 `dist/client`。
+
+## 纯 Python 知识图谱
+
+`backend/knowledge_graph.py` 采用内存邻接表，提供节点、关系、类型索引、邻居查询、路径查找和子图导出。`backend/knowledge_content.py` 内置番茄生长周期、种植观察以及劳动与健康教育主题；健康教育内容明确标注为主题整理、非教材原文。
+
+教师或管理员新增、编辑资料后，内容原子写入 `HYDRO_KNOWLEDGE_FILE`，默认是 `backend/real-data/knowledge_graph.json`。重启后会先载入 Python 内置资料，再用本地持久化版本恢复编辑和新增内容。问答、收藏和探究记录继续保留当次来源、图谱、模型与环境快照。
+
+知识问答可选择纯图谱检索，或使用本机 Ollama `qwen3.5:4b` 根据检索原文生成带引用的回答。无来源不生成诊断；模型离线不会影响纯 Python 图谱查询。详见 [纯 Python 图谱](docs/python-knowledge-graph.md)和[本地 AI 查询](docs/knowledge-ai.md)。
 
 ## 功能与边界
 
-- 知识问答：Neo4j Cypher 知识检索与真实关系遍历，按来源编号追溯，支持新增经验、收藏、探究记录及截图。已接入本机 Ollama `qwen3.5:4b`，支持选择已安装模型、全库图谱、资料编辑和回答快照；无来源不生成诊断，模型离线明确报错。项目资料保留待核验标记。见 [本地 AI 查询说明](docs/knowledge-ai.md)。
-- 物联网：七项参数、小时/天/周曲线、快照、CSV/Excel、四执行器、确认弹窗、状态回执、阈值自动规则。
-- MQTT：真实协议实现，包括 TLS 校验、认证、QoS、主题配置、测试、连接、断开、遥测校验、指令编号关联、回执超时；[接入协议](docs/mqtt-protocol.md)给出设备端载荷。
-- 成熟度：上传、拍照入口、原图标注图、列表筛选、对比、报告。使用用户提供的番茄 YOLOv8n 权重进行真实推理，页面显示模型就绪状态，真实数据模式禁止演示识别。
-- 档案：图文与环境快照、时间轴、设备/茬次筛选、记录对比、照片包、PDF 与 CSV。
-- 课程：支持实际任务的发布、领取、提交、照片和数据附件、教师评分评价；真实模式不预置示例课程，家长只读学生成果。
-- 移动端：同一 Vue 应用适配手机，包含监控、拍照、记录、预警、问答、任务、个人中心。相机/麦克风需要浏览器权限，语音使用浏览器能力；不是 iOS/Android 原生安装包。
+- 物联网：完整 MQTT 配置、真实遥测、小时/天/周曲线、设备控制、回执和状态展示。
+- MQTT：按 ESP32-S3 r19 与 V1.1 协议使用固定根主题 `tomato_hnsw0001`、QoS 0 和 15 秒遥测；权威配置为 `backend/config/mqtt.yaml`。
+- 成熟度：真实番茄 YOLO 模型推理，默认最低置信度 65%，同步筛选框、列表和统计；原图与推理记录可追溯。
+- 摄像头：浏览器拍照以及 ESP32-P4 HTTP 推送/读取；默认地址由 `backend/config/camera.yaml` 管理，获取时间不冒充采集时间。
+- 档案与课程：环境快照、图片、识别记录、任务提交、评价、CSV/Excel/PDF/ZIP 导出。
+- 知识与教育：番茄种植、劳动安全、个人卫生、食品卫生、屏幕与工具安全等内容；待核验状态始终展示。
 
 ## 真实模型
 
-已配置用户提供并确认为番茄模型的 `best(3).pt`，部署副本位于 `backend/models/tomato-v1.pt`。Docker 以只读目录挂载权重，使用 CPU 推理；类别为 `0=Unripe/未成熟`、`1=Half-ripe/半成熟`、`2=Ripe/成熟`。权重来源和 SHA-256 记录在 `backend/models/tomato-v1.json`，训练实验名原样保留。
+用户确认的番茄模型部署于 `backend/models/tomato-v1.pt`，类别为 `0=Unripe/未成熟`、`1=Half-ripe/半成熟`、`2=Ripe/成熟`。权重来源和 SHA-256 记录在 `backend/models/tomato-v1.json`。需要推理时安装额外依赖：
 
-非容器环境在同一 Python 环境安装推理依赖：
-```sh
-.venv/bin/pip install -r backend/requirements-vision.txt
-export YOLO_MODEL_PATH='backend/models/tomato-v1.pt'
-export YOLO_DEVICE=cpu
+```powershell
+.venv\Scripts\python.exe -m pip install -r backend\requirements-vision.txt
 ```
-启动时加载模型，`/api/health` 的 `model.ready` 表示加载状态。真实数据模式下缺少权重或推理失败返回 503，不产生识别记录。中文标签按权重中的实际英文类别翻译；可选 `YOLO_CLASS_MAP` 必须覆盖全部真实类别。每次识别保存类别编号、原始类别名、权重 SHA-256 和推理参数。登记实际设备与茬次后，在“成熟度”页面上传番茄照片。模型准确性需用真实番茄照片验证；空白对照图检查仅验证推理链路，不作为准确率证据。
 
-成熟度页面提供最低置信度滑块，默认 **65%**，可在 10%–95% 间调整。历史照片按所选阈值同步筛选标注框、结果列表、数量和成熟度统计；原始识别存档及其导出保留。上传或拍照时后端使用同一阈值进行推理，并把阈值写入新记录。历史记录无法显示当次推理阈值以下未留存的目标，需要重新上传原图识别。
+启动时加载模型，`/api/health` 的 `model.ready` 表示状态。模型准确性仍须用真实番茄照片验证；空白对照只验证链路。
 
 ## 真实设备
 
-MQTT 的权威配置为 `backend/config/mqtt.yaml`，已按用户提供的番茄种植架 r19 固件配置本机 EMQX，消息格式沿用 V1.1。所有已登录账户均可在物联网页修改完整 MQTT 配置并执行连接测试；密码只允许替换，不会由 API 明文回显，YAML 始终保留环境变量引用。
+本机原生 EMQX 监听 `0.0.0.0:1883`，硬件和 Python 后端均按当前配置访问 `192.168.31.217:1883`。所有已登录账户可在物联网页修改完整 MQTT 配置；密码只允许替换且不会由 API 明文回显。设备 AI 模式由固件执行，平台不把它替换成阈值控制。详见 [MQTT 协议](docs/mqtt-protocol.md)和[本机 EMQX](docs/local-emqx.md)。
 
-1. 使用物联网页标题区的“MQTT 配置”修改连接、认证、设备和主题参数；也可直接编辑后端 YAML。通过页面接口测试并建立连接。
-2. 编辑目标设备，把数据来源切换为 `mqtt`。
-3. 番茄种植架 r19 按 V1.1 消息格式每 15 秒发布遥测；平台订阅 result/state/telemetry/availability，向 set 发布控制，所有方向 QoS 0。
-4. 番茄架的 AI 模式通过 CMD 08 交给固件执行；平台不套用旧版阈值自动策略。先以手动模式联调。
+## 版本管理
 
-实际设备、班级、茬次和课程由用户录入；遥测必须来自 MQTT，识别必须来自已配置模型，知识须录入实际来源。
-
-当前已配置本机 EMQX 接入，后端自动连接并等待订阅确认；网页只读展示通信状态，控制面板支持固件九种命令。配置和网络要求见 [本机 EMQX 接入](docs/local-emqx.md)。
-
-前端 web 在所有主机接口发布 5176、5173 端口，当前局域网访问地址为 `192.168.31.217`；API 与 Neo4j 仍只绑定回环地址。已提供并配置真实 YOLO 权重；硬件联调和模型准确率须分别用实际设备、带标注的番茄照片验收。
-
-## 关闭免密演示
-
-设置 `HYDRO_DEMO=0`，并在运行环境设置 `HYDRO_ADMIN_PASSWORD`、`HYDRO_TEACHER_PASSWORD`、`HYDRO_STUDENT_PASSWORD`、`HYDRO_PARENT_PASSWORD`。密码不放进前端。此版本为本机教学原型的角色账户，不是多学校、多学生生产身份系统；公网部署需接入正式用户认证、班级数据授权和 HTTPS。
+`.env`、SQLite、知识图谱运行 JSON、上传照片、依赖目录、构建产物和模型权重不提交。跨电脑部署时从 `.env.example` 创建本机配置，单独复制授权模型及需要迁移的 `backend/real-data/`。
 
 ## 测试
 
-```sh
-.venv/bin/pip install -r backend/requirements-test.txt
-.venv/bin/python -m pytest tests/test_api.py tests/test_mqtt_live.py tests/test_neo4j_live.py tests/test_tomato_protocol.py -q
+```powershell
+.venv\Scripts\python.exe -m pip install -r backend\requirements-test.txt
+.venv\Scripts\python.exe -m pytest tests\test_api.py tests\test_knowledge_ai.py tests\test_python_graph.py tests\test_mqtt_live.py tests\test_tomato_protocol.py -q
 npm run build
+npm run test:sites
 ```
 
-MQTT 测试创建随机本机端口的 AMQTT Broker，用模拟设备验证真实 TCP MQTT 的接收和回执；不访问外部 Broker。
+图谱测试使用隔离临时 JSON 和 SQLite；MQTT 测试使用随机本机端口的临时 Broker，不访问生产设备。

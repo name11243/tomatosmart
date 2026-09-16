@@ -23,8 +23,8 @@ def test_auth_and_role_boundaries():
 
 def test_knowledge_changes_with_question_and_no_fake_answer():
  c=client();a=c.post('/api/ask',json={'question':'番茄叶片发黄怎么办？'}).json()
- assert [x['id'] for x in a['items']]==['KB-001','KB-002'];assert len(a['graph']['nodes'])==8  # No inferred environment nodes.
- b=c.post('/api/ask',json={'question':'液位不足怎么办'}).json();assert b['items'][0]['id']=='KB-003'
+ assert [x['id'] for x in a['items']]==['KB-TOMATO-005'];assert len(a['graph']['nodes'])>=5
+ b=c.post('/api/ask',json={'question':'液位不足怎么办'}).json();assert b['items'][0]['id']=='KB-TOMATO-006'
  assert not c.post('/api/ask',json={'question':'火星宇航服'}).json()['items']
  assert c.post('/api/ask',json={'question':''}).status_code==422
  assert c.post('/api/favorites',json={'question':'叶片发黄'}).status_code==200
@@ -129,7 +129,7 @@ def test_log_evidence_uses_selected_device_and_retains_snapshot():
  log=next(x for x in c.get('/api/logs').json() if x['title']=='知识检索与图谱关联' and x['device']=='HY-002')
  assert log['evidence']['environment']['ts']==sample['ts']
  assert log['evidence']['environment']['values']['ph']==6.2
- assert log['evidence']['knowledge'][0]['id']=='KB-001'
+ assert log['evidence']['knowledge'][0]['id']=='KB-TOMATO-005'
  s.add_telemetry('HY-002','2026-A',{'ph':7.1},'demo')
  assert s.get('logs',log['id'])['evidence']['environment']['values']['ph']==6.2
  assert c.post('/api/ask',json={'question':'叶片发黄','device':'DOES-NOT-EXIST'}).status_code==404

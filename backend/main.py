@@ -150,12 +150,36 @@ def telemetry(id:str,period:Literal['hour','day','week']='day',u=Depends(actor))
  return {'points':points,'latest':rows[-1] if rows else None,'aggregation':'minute' if bucket==60 else 'hour'}
 
 @app.post('/api/devices/{id}/snapshot')
-def snapshot(id:str,u=Depends(editor)):
- d=obj('devices',id);rows=s.telemetry(id,1)
- if not rows or rows[-1]['source']!=d['source']:raise HTTPException(409,'当前数据通道尚无遥测，无法保存快照')
- missing=[label for key,label,_,_ in s.METRICS if rows[-1]['values'].get(key) is None]
- content='保存设备上报值；暂无读数：'+'、'.join(missing) if missing else '七项参数完整留存'
- return s.put('records',{'title':'环境数据快照','content':content,'type':'数据快照','device':id,'batch':d['batch'],'owner':u['role'],'photos':[],'values':rows[-1]['values'],'source':rows[-1]['source'],'telemetry_at':rows[-1]['ts'],'units':rows[-1].get('units',{})})
+def snapshot(id: str, u=Depends(editor)):
+    d = obj('devices', id)
+    rows = s.telemetry(id, 1)
+    if not rows or rows[-1]['source'] != d['source']:
+        raise HTTPException(409, '当前数据通道尚无遥测，无法保存快照')
+    missing = [
+        label for key, label, _, _ in s.METRICS
+        if rows[-1]['values'].get(key) is None
+    ]
+    content = (
+        '保存设备上报值；暂无读数：' + '、'.join(missing)
+        if missing else '七项参数完整留存'
+    )
+    return s.put(
+        'records',
+        {
+            'title': '环境数据快照',
+            'content': content,
+            'type': '数据快照',
+            'device': id,
+            'batch': d['batch'],
+            'owner': u['role'],
+            'photos': [],
+            'values': rows[-1]['values'],
+            'source': rows[-1]['source'],
+            'telemetry_at': rows[-1]['ts'],
+            'units': rows[-1].get('units', {})
+        }
+    )
+
 @app.get('/api/mqtt')
 def mqtt_config(u=Depends(actor)):
  return {'config':service.config(True),**service.status()}

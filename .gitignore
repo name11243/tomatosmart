@@ -18,6 +18,7 @@ dist/
 *.key
 .DS_Store
 Thumbs.db
+.idea/
 
 backend/real-data/
 data/

@@ -20,7 +20,7 @@ try{
  await send('Runtime.enable');await send('Network.enable');await send('Page.enable');
  await send('Emulation.setDeviceMetricsOverride',{width:1480,height:1080,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url:base+'/#maturity'});
- await until("document.body.innerText.includes('番茄成熟度模型已就绪')");
+ await until("document.body?.innerText.includes('番茄成熟度模型已就绪')");
  await until("[...document.querySelectorAll('button')].some(b=>b.innerText.trim()==='远程摄像头'&&!b.disabled)");
  await click('远程摄像头');await until("!!document.getElementById('remote-camera-url')");
  result.defaultAddress=await evaluate("document.getElementById('remote-camera-url').value");
@@ -37,7 +37,7 @@ try{
  await input('#remote-camera-url',result.defaultAddress);await click('取消','.camera-modal button');
  await send('Emulation.setDeviceMetricsOverride',{width:1480,height:1080,deviceScaleFactor:1,mobile:false});
  await evaluate("location.hash='knowledge'");
- await until("document.body.innerText.includes('Neo4j 已连接')");
+ await until("document.body?.innerText.includes('Neo4j 已连接')");
  result.graphNodes=await evaluate("document.querySelector('.graph-canvas')?.getAttribute('_echarts_instance_')!=null");assert.ok(result.graphNodes);
  await screenshot('knowledge-overview-desktop',1480,1080);
  await evaluate("(()=>{const original=window.fetch;window.fetch=async(...args)=>{const r=await original(...args);if(String(args[0]).endsWith('/api/ask'))window.__qaAnswer=await r.clone().json();return r}})()");
@@ -46,7 +46,7 @@ try{
  result.answer=await evaluate('window.__qaAnswer');assert.equal(result.answer.mode,'local_ai',JSON.stringify(result.answer));
  assert.ok(result.answer.generation.statements.length);assert.ok(result.answer.items.every(k=>k.verified===false));
  await screenshot('knowledge-ai-desktop',1480,1080);await screenshot('knowledge-ai-mobile',390,844);
- await click('知识库浏览');await until("document.body.innerText.includes('MQTT 主题与消息方向')");
+ await click('知识库浏览');await until("document.body?.innerText.includes('MQTT 主题与消息方向')");
  await click('编辑');await until("!!document.querySelector('.knowledge-fields')");
  await screenshot('knowledge-editor-mobile',390,844);await click('取消','.knowledge-dialog button');
  for(const route of ['overview','iot','maturity','archives','logs','growth','courses','devices','profile']){

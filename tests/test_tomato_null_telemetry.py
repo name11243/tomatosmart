@@ -16,7 +16,7 @@ from backend.mqtt_service import MQTTService
 @pytest.fixture
 def controller(monkeypatch):
     from backend import main
-    original = mqtt_config.path().read_text()
+    original = mqtt_config.path().read_text(encoding='utf-8')
     device_id = 'TEST-NULL-R19'
     service = MQTTService()
     service.save_config({**service.config(), 'protocol': 'tomato_v1_1', 'device_id': device_id,
@@ -33,7 +33,7 @@ def controller(monkeypatch):
     assert client.post('/api/session', json={'role': 'teacher'}).status_code == 200
     payload = {wire: None for wire in mqtt_config.read()['protocol']['telemetry_fields']}
     yield service, client, device_id, payload
-    mqtt_config.path().write_text(original)
+    mqtt_config.path().write_text(original, encoding='utf-8')
     with s.db() as connection:
         connection.execute('DELETE FROM telemetry WHERE device=?', (device_id,))
         connection.execute("DELETE FROM objects WHERE id=? OR json_extract(data,'$.device')=?", (device_id, device_id))

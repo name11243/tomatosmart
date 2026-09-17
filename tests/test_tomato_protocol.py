@@ -37,16 +37,16 @@ def test_tomato_result_identity_availability_and_yaml_persistence():
 
 def test_secret_reference_is_not_replaced_with_a_password(monkeypatch):
     import yaml
-    old=mqtt_config.path().read_text()
+    old=mqtt_config.path().read_text(encoding='utf-8')
     try:
         config=yaml.safe_load(old);config['mqtt']['password']='${MQTT_TEST_SECRET}'
-        mqtt_config.path().write_text(yaml.safe_dump(config))
+        mqtt_config.path().write_text(yaml.safe_dump(config,allow_unicode=True),encoding='utf-8')
         monkeypatch.setenv('MQTT_TEST_SECRET','isolated-secret-value')
         assert service.config()['password']=='isolated-secret-value'
         assert service.config(True)['password']==''
         service.save_config(service.config())
-        assert yaml.safe_load(mqtt_config.path().read_text())['mqtt']['password']=='${MQTT_TEST_SECRET}'
-    finally:mqtt_config.path().write_text(old)
+        assert yaml.safe_load(mqtt_config.path().read_text(encoding='utf-8'))['mqtt']['password']=='${MQTT_TEST_SECRET}'
+    finally:mqtt_config.path().write_text(old,encoding='utf-8')
 
 
 def test_retained_telemetry_cannot_make_device_appear_live():

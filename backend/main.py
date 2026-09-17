@@ -243,8 +243,8 @@ def knowledge_status(u=Depends(actor)):return kg.status()
 @app.get('/api/ai/status')
 def ai_status(u=Depends(actor)):return local_ai.status()
 @app.get('/api/knowledge/graph')
-def knowledge_overview(q:str='',limit:int=20,u=Depends(actor)):
- items=kg.all(q);limit=max(1,min(limit,50))
+def knowledge_overview(q:str='',limit:int=100,u=Depends(actor)):
+ items=kg.all(q);limit=max(1,min(limit,100))
  return {'graph':kg.graph(items[:limit]),'items':items[:limit],'total':len(items),'limit':limit}
 @app.get('/api/knowledge')
 def knowledge(q:str='',u=Depends(actor)):return kg.all(q)

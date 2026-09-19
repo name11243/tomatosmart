@@ -2,10 +2,13 @@ import asyncio, io, json, math, os, secrets, time, zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from random import random
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from neo4j.exceptions import Neo4jError, DriverError
+from starlette.staticfiles import StaticFiles
+
 from .knowledge_graph import kg
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
@@ -149,36 +152,25 @@ def telemetry(id:str,period:Literal['hour','day','week']='day',u=Depends(actor))
  rows=s.telemetry(id,1)
  return {'points':points,'latest':rows[-1] if rows else None,'aggregation':'minute' if bucket==60 else 'hour'}
 
-@app.post('/api/devices/{id}/snapshot')
-def snapshot(id: str, u=Depends(editor)):
-    d = obj('devices', id)
-    rows = s.telemetry(id, 1)
-    if not rows or rows[-1]['source'] != d['source']:
-        raise HTTPException(409, '当前数据通道尚无遥测，无法保存快照')
-    missing = [
-        label for key, label, _, _ in s.METRICS
-        if rows[-1]['values'].get(key) is None
-    ]
-    content = (
-        '保存设备上报值；暂无读数：' + '、'.join(missing)
-        if missing else '七项参数完整留存'
-    )
-    return s.put(
-        'records',
-        {
-            'title': '环境数据快照',
-            'content': content,
-            'type': '数据快照',
-            'device': id,
-            'batch': d['batch'],
-            'owner': u['role'],
-            'photos': [],
-            'values': rows[-1]['values'],
-            'source': rows[-1]['source'],
-            'telemetry_at': rows[-1]['ts'],
-            'units': rows[-1].get('units', {})
-        }
-    )
+@app.post('/api/devices/{device_id}/snapshot')
+def save_snapshot(device_id: str, user=Depends(editor)):
+ device=obj('devices',device_id)
+ samples=s.telemetry(device_id,1)
+ if not samples:
+  raise HTTPException(409,'暂无遥测，不能存档')
+ sample=samples[-1]
+ if sample['source']!=device['source']:
+  raise HTTPException(409,'数据来源不一致')
+ missing=[name for key,name,_,_ in s.METRICS if sample['values'].get(key) is None]
+ note='保存设备上报的环境数据'
+ if missing:
+  note+='；暂无读数：'+'、'.join(missing)
+ return s.put('records',{
+  'title':'环境数据快照','content':note,'type':'数据快照',
+  'device':device_id,'batch':sample['batch'],'owner':user['role'],
+  'source':sample['source'],'telemetry_at':sample['ts'],
+  'values':sample['values'],'units':sample.get('units',{}),'photos':[]
+ })
 
 @app.get('/api/mqtt')
 def mqtt_config(u=Depends(actor)):

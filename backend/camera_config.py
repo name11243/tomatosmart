@@ -9,7 +9,8 @@ LOCK = threading.RLock()
 DEFAULT_PATH = Path(__file__).parent / 'config' / 'camera.yaml'
 # No address is baked in here: backend/config/camera.yaml is the only authority, so a stale
 # duplicate default can never silently replace the address the user saved.
-FALLBACK = {'url': '', 'refresh_seconds': 20}
+FALLBACK = {'url': '', 'refresh_seconds': 20, 'rotate': 0}
+ROTATE_CHOICES = (0, 90, 180, 270)
 
 
 def path():
@@ -38,7 +39,13 @@ def read():
             refresh = int(camera.get('refresh_seconds', FALLBACK['refresh_seconds']))
         except (TypeError, ValueError):
             refresh = FALLBACK['refresh_seconds']
-        return {'url': url, 'refresh_seconds': min(max(refresh, 5), 600)}
+        try:
+            rotate = int(camera.get('rotate', FALLBACK['rotate']))
+        except (TypeError, ValueError):
+            rotate = FALLBACK['rotate']
+        if rotate not in ROTATE_CHOICES:
+            rotate = FALLBACK['rotate']
+        return {'url': url, 'refresh_seconds': min(max(refresh, 5), 600), 'rotate': rotate}
 
 
 def save(url):
@@ -48,7 +55,7 @@ def save(url):
     with LOCK:
         target = path()
         target.parent.mkdir(parents=True, exist_ok=True)
-        camera = {'url': value, 'refresh_seconds': read()['refresh_seconds']}
+        camera = {'url': value, 'refresh_seconds': read()['refresh_seconds'], 'rotate': read()['rotate']}
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=target.parent, delete=False) as out:
             yaml.safe_dump({'camera': camera}, out, allow_unicode=True, sort_keys=False)
             temp = Path(out.name)

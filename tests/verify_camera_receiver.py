@@ -104,7 +104,7 @@ class ReceiverChecks(unittest.TestCase):
             self.assertEqual(self.post().status_code, 413)
         self.assertEqual(self.client.get('/snapshot').content, JPEG)
 
-    def test_latest_photo_survives_a_separate_backend_process_and_marks_stale(self):
+    def test_latest_photo_survives_but_stale_bytes_are_not_returned_as_live(self):
         self.post()
         script = 'import json; from backend.camera_receiver import latest,metadata; print(json.dumps(metadata(latest())))'
         result = subprocess.run([sys.executable, '-c', script], text=True, capture_output=True, check=True)
@@ -112,8 +112,10 @@ class ReceiverChecks(unittest.TestCase):
         with store.db() as db:
             db.execute("UPDATE camera_snapshot SET received_at='2020-01-01T00:00:00+00:00'")
         response = self.client.get('/snapshot')
-        self.assertEqual(response.content, JPEG)
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(response.headers['x-camera-stale'], 'true')
+        self.assertIn('未收到 ESP32-P4 的新照片', response.json()['detail'])
+        self.assertEqual(receiver.latest()['image'], JPEG)
 
     def test_browser_fetch_waits_then_receives_real_ingress_bytes(self):
         # Route the existing fetcher to the isolated receiver app over ASGI transport.
@@ -131,6 +133,11 @@ class ReceiverChecks(unittest.TestCase):
             self.assertIsNone(frame['captured_at'])
             Image.open(io.BytesIO(base64.b64decode(frame['image'].split(',')[1]))).verify()
             self.assertFalse(frame['stale'])
+            with store.db() as db:
+                db.execute("UPDATE camera_snapshot SET received_at='2020-01-01T00:00:00+00:00'")
+            stale = asyncio.run(remote_camera.fetch_frame('http://10.0.0.2:500/snapshot'))
+            self.assertTrue(stale['receiver_waiting'])
+            self.assertIsNone(stale['image'])
 
 
 if __name__ == '__main__':

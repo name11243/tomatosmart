@@ -6,6 +6,7 @@ os.environ['HYDRO_ENV_FILE']=str(TEST_ROOT/'.env')
 os.environ['HYDRO_MQTT_CONFIG']=str(TEST_ROOT/'mqtt.yaml')
 shutil.copy2(Path(__file__).parents[1]/'backend/config/mqtt.yaml',os.environ['HYDRO_MQTT_CONFIG'])
 os.environ['HYDRO_DEMO']='1'
+os.environ['YOLO_MODEL_PATH']=''
 from fastapi.testclient import TestClient
 from PIL import Image
 from backend.main import app

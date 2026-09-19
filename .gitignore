@@ -25,3 +25,6 @@ data/
 backend/models/*.pt
 backend/models/*.onnx
 backend/models/*.engine
+
+# WorkBuddy session workspace data
+.workbuddy/

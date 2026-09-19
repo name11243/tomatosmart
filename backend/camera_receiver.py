@@ -15,13 +15,16 @@ from starlette.formparsers import MultiPartParser, MultiPartException
 from python_multipart.exceptions import MultipartParseError
 from PIL import Image, UnidentifiedImageError
 
-from . import store
+from . import camera_config, store
 
 router = APIRouter()
 MAX_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = MAX_BYTES + 64 * 1024  # multipart envelope, not extra image data
 MAX_PIXELS = 24_000_000
 STALE_SECONDS = 60
+# PIL transpose operations keyed by the configured correction angle (clockwise intent).
+TRANSPOSE = {90: Image.Transpose.ROTATE_270, 180: Image.Transpose.ROTATE_180,
+             270: Image.Transpose.ROTATE_90}
 RECEIVER_HEADERS = {'Cache-Control': 'no-store, max-age=0',
                     'X-Content-Type-Options': 'nosniff',
                     'X-Camera-Receiver': 'tomatosmart'}
@@ -55,7 +58,7 @@ def metadata(row):
             'bytes': len(row['image']), 'sha256': row['sha256'],
             'content_type': row['media_type'], 'width': row['width'], 'height': row['height'],
             'sender': row['sender'], 'source': 'http_upload',
-            'message': '超过 60 秒未收到新推送，保留最后一张照片。' if age > STALE_SECONDS else '已收到设备上传的照片。'}
+            'message': '超过 60 秒未收到新推送，历史照片已保留但不会作为实时画面返回。' if age > STALE_SECONDS else '已收到设备上传的照片。'}
 
 
 def save_image(data, sender):
@@ -77,6 +80,19 @@ def save_image(data, sender):
             image.load()
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
         raise HTTPException(422, '上传内容不是完整、有效的 JPEG/PNG 图片，已保留上次照片。') from exc
+    # camera.yaml 'rotate' corrects an upside-down mounted camera once at ingress, so the
+    # page, recognition, and archives all work on the same upright frame.
+    rotate = camera_config.read()['rotate']
+    if rotate in TRANSPOSE:
+        with Image.open(io.BytesIO(data)) as image:
+            image.load()
+            turned = image.convert('RGB').transpose(TRANSPOSE[rotate])
+            buffer = io.BytesIO()
+            turned.save(buffer, format='JPEG', quality=95)
+        data = buffer.getvalue()
+        media_type = 'image/jpeg'
+        if rotate in (90, 270):
+            width, height = height, width
     row = dict(image=data, media_type=media_type, sha256=hashlib.sha256(data).hexdigest(),
                received_at=store.now(), sender=sender[:100], width=width, height=height)
     # One transaction atomically replaces image and metadata. No accumulating photo files,
@@ -152,7 +168,10 @@ def get_snapshot(request: Request):
                             status_code=404, headers=RECEIVER_HEADERS)
     info = metadata(row)
     headers = {**RECEIVER_HEADERS, 'X-Camera-Received-At': row['received_at'],
-               'X-Camera-Sha256': row['sha256'], 'X-Camera-Stale': str(info['stale']).lower(),
-               'Content-Length': str(len(row['image']))}
+               'X-Camera-Sha256': row['sha256'], 'X-Camera-Stale': str(info['stale']).lower()}
+    if info['stale']:
+        return JSONResponse({'detail': '接收服务已连通，但超过 60 秒未收到 ESP32-P4 的新照片。'},
+                            status_code=404, headers=headers)
+    headers['Content-Length'] = str(len(row['image']))
     return Response(content=b'' if request.method == 'HEAD' else row['image'],
                     media_type=row['media_type'], headers=headers)

@@ -52,7 +52,7 @@ class DeployedVisionTests(unittest.TestCase):
         self.assertEqual(record['model']['sha256'], digest)
         self.assertEqual(record['model']['device'], 'cpu')
         self.assertEqual(record['model']['confidence_threshold'], 0.65)
-        self.assertEqual([c['label'] for c in record['model']['classes']], ['未成熟', '半成熟', '成熟'])
+        self.assertEqual([c['label'] for c in record['model']['classes']], ['成熟', '半成熟', '未成熟'])
         self.assertEqual(self.client.get(record['annotated']).headers['content-type'], 'image/jpeg')
         exported = self.client.get('/api/export/recognitions?format=json').json()
         self.assertEqual(next(r for r in exported if r['id'] == record['id'])['model'], record['model'])

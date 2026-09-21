@@ -45,13 +45,17 @@ class VisionService:
                 names = {int(k): str(v) for k, v in model.names.items()}
                 translations = {'Unripe': '未成熟', 'Half-ripe': '半成熟', 'Ripe': '成熟'}
                 labels = {str(k): translations.get(v, v) for k, v in names.items()}
+                with path.open('rb') as weights:
+                    digest = hashlib.file_digest(weights, 'sha256').hexdigest()
+                # Real-photo checks confirmed reversed ripe/unripe names in this
+                # specific best(3).pt; other weights keep their original mapping.
+                if digest == 'd850966ea298360f50aa9da8340e8296619c38088ec4376936bdd5adc10f9719':
+                    labels.update({'0': '成熟', '2': '未成熟'})
                 override = os.getenv('YOLO_CLASS_MAP')
                 if override:
                     labels = json.loads(override)
                     if not isinstance(labels, dict) or set(labels) != {str(k) for k in names} or not all(isinstance(v, str) and v for v in labels.values()):
                         raise ValueError('YOLO_CLASS_MAP must match every model class')
-                with path.open('rb') as weights:
-                    digest = hashlib.file_digest(weights, 'sha256').hexdigest()
                 self._labels = labels
                 self._metadata = {'name': path.name, 'sha256': digest, 'task': 'detect',
                                   'device': os.getenv('YOLO_DEVICE', 'cpu'),

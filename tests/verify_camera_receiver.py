@@ -117,6 +117,15 @@ class ReceiverChecks(unittest.TestCase):
         self.assertIn('未收到 ESP32-P4 的新照片', response.json()['detail'])
         self.assertEqual(receiver.latest()['image'], JPEG)
 
+    def test_upload_bumps_event_version_and_wakes_waiters(self):
+        before = receiver.upload_version()
+        self.post()
+        self.assertGreater(receiver.upload_version(), before)
+        self.assertEqual(receiver.wait_for_upload(receiver.upload_version(), 0.05),
+                         receiver.upload_version())
+        self.assertEqual(receiver.wait_for_upload(receiver.upload_version(), 0.05),
+                         receiver.upload_version())
+
     def test_browser_fetch_waits_then_receives_real_ingress_bytes(self):
         # Route the existing fetcher to the isolated receiver app over ASGI transport.
         original = httpx.AsyncClient

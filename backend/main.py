@@ -1,18 +1,50 @@
 import asyncio, io, json, math, os, secrets, time, zipfile
+from calendar import mdays
+from cmath import polar
 from contextlib import asynccontextmanager
+from ctypes.macholib.dyld import dyld_fallback_framework_path
+from ctypes.macholib.dylib import dylib_info
 from datetime import datetime, timezone
+from hashlib import file_digest
+from http.cookiejar import debug, eff_request_host
+from idlelib.debugobj import make_objecttreeitem
+from idlelib.macosx import addOpenEventSupport
+from idlelib.outwin import file_line_helper
+from logging import lastResort
+from os import supports_effective_ids
 from pathlib import Path
+from pydoc import browse
 from random import random
+from socketserver import DatagramRequestHandler
+from turtledemo.clock import jump
 from typing import Literal
+from xml.dom.expatbuilder import theDOMImplementation
+
+from PIL.JpegImagePlugin import jpeg_factory
+from click.termui import hidden_prompt_func
 from fastapi import FastAPI, HTTPException, Depends, Request, Response, UploadFile, File, Form
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
+from h11 import Data
 from neo4j.exceptions import Neo4jError, DriverError
+from openpyxl.styles.alignment import horizontal_alignments
+from openpyxl.utils import rows_from_range
+from openpyxl.utils.units import DEFAULT_ROW_HEIGHT
+from openpyxl.worksheet.filters import string_format_mapping
+from pydantic_core.core_schema import no_info_before_validator_function
+from pygments.lexers.sql import lookahead
+from reportlab.graphics.barcode.usps4s import nhex
+from reportlab.graphics.widgets.flags import makeFlag
+from reportlab.lib.colors import skyblue, hue2rgb
+from reportlab.lib.normalDate import dayOfWeek
+from reportlab.lib.rparsexml import smartDecode
 from starlette.staticfiles import StaticFiles
 
 from .knowledge_graph import kg
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
 from . import store as s
+from .migrate_knowledge import main
 from .schemas import MQTTConfig, Command, Question, Record, Device
 from .mqtt_service import service
 from .mqtt_config import read as read_mqtt_config
@@ -152,27 +184,38 @@ def telemetry(id:str,period:Literal['hour','day','week']='day',u=Depends(actor))
  rows=s.telemetry(id,1)
  return {'points':points,'latest':rows[-1] if rows else None,'aggregation':'minute' if bucket==60 else 'hour'}
 
-@app.post('/api/devices/{device_id}/snapshot')
-def save_snapshot(device_id: str, user=Depends(editor)):
- device=obj('devices',device_id)
- samples=s.telemetry(device_id,1)
- if not samples:
-  raise HTTPException(409,'暂无遥测，不能存档')
- sample=samples[-1]
- if sample['source']!=device['source']:
-  raise HTTPException(409,'数据来源不一致')
- missing=[name for key,name,_,_ in s.METRICS if sample['values'].get(key) is None]
- note='保存设备上报的环境数据'
- if missing:
-  note+='；暂无读数：'+'、'.join(missing)
- return s.put('records',{
-  'title':'环境数据快照','content':note,'type':'数据快照',
-  'device':device_id,'batch':sample['batch'],'owner':user['role'],
-  'source':sample['source'],'telemetry_at':sample['ts'],
-  'values':sample['values'],'units':sample.get('units',{}),'photos':[]
- })
 
-@app.get('/api/mqtt')
+@app.post("/api/devices/{device_id}/snapshot")  # 定义快照保存接口，通过设备编号确定本次保存哪台设备的数据。
+def save_snapshot(device_id: str, user=Depends(editor)):
+    device = obj("devices", device_id)  # 查询设备是否存在
+    samples = s.telemetry(device_id, 1)  # 获取该设备最近一次已接收的遥测
+    if not samples:  # 判断是否有数据可保存
+        raise HTTPException(409, "暂无遥测，不能存档")
+    sample = samples[-1]
+    if sample["source"] != device["source"]:
+        raise HTTPException(409, "数据来源不一致")
+    第二，整理数据并标记缺失。
+    missing = [  # 建立缺失指标列表
+        name for key, name, _, _ in s.METRICS
+        if sample["values"].get(key) is None
+    ]
+    note = "保存设备上报的环境数据"
+        note += "；暂无读数：" + "、".join(missing)
+    record = {  # 将分散的信息整理成统一的档案结构，便于后续保存、查询和展示。
+        "title": "环境数据快照",
+        "content": note,
+        "type": "数据快照",
+        "device": device_id,
+        "batch": sample["batch"],
+        "owner": user["role"],
+        "source": sample["source"],
+        "telemetry_at": sample["ts"],
+        "values": sample["values"],
+        "units": sample.get("units", {}),
+        "photos": []
+}
+
+@app.get('/api/mqtt'))
 def mqtt_config(u=Depends(actor)):
  return {'config':service.config(True),**service.status()}
 @app.put('/api/mqtt')
@@ -383,6 +426,22 @@ def camera_address(u=Depends(actor)):
 def camera_receiver_status(response:Response,u=Depends(actor)):
  response.headers['Cache-Control']='no-store'
  return camera_receiver.metadata(camera_receiver.latest())
+@app.get('/api/camera/events')
+async def camera_events(request:Request,u=Depends(editor)):
+ # Server-sent upload notifications: each firmware POST wakes every open page at once,
+ # so the newest photo is fetched immediately instead of on the next poll.
+ async def stream():
+  version=camera_receiver.upload_version()
+  while True:
+   if await request.is_disconnected():break
+   current=await asyncio.to_thread(camera_receiver.wait_for_upload,version,20)
+   if current>version:
+    version=current
+    yield f'event: upload\ndata: {json.dumps({"version":version})}\n\n'
+   else:
+    yield ': keep-alive\n\n'
+ return StreamingResponse(stream(),media_type='text/event-stream',
+  headers={'Cache-Control':'no-store','X-Accel-Buffering':'no'})
 @app.put('/api/camera/config')
 def save_camera_address(v:CameraAddress,u=Depends(editor)):
  saved=camera_config.save(v.url)

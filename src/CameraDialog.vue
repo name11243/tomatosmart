@@ -9,8 +9,21 @@ const defaultAddress=computed(()=>props.savedUrl||'未在后端配置');
 const addressChanged=computed(()=>!!remoteUrl.value.trim()&&remoteUrl.value.trim()!==(props.savedUrl||'').trim());
 const mode=ref(props.initialMode),video=ref(),ready=ref(false),frame=ref(null),active=ref(false),fetching=ref(false),taking=ref(false),cameraError=ref(''),captured=ref(null),preview=ref(''),probing=ref(false),report=ref(null);
 const waitingUpload=ref(false);
-let stream,timer,request,generation=0,alive=true;
-function stop(){generation++;clearTimeout(timer);request?.abort();stream?.getTracks().forEach(track=>track.stop());stream=null;ready.value=false;active.value=false;fetching.value=false;probing.value=false;waitingUpload.value=false}
+let stream,timer,request,generation=0,alive=true,events=null;
+// The backend pushes an SSE event the moment the firmware uploads a photo, so the page
+// can fetch the new frame instantly instead of waiting for its next poll.
+function closeEvents(){events?.close();events=null}
+function listenUploads(){
+ if(events||mode.value!=='remote')return;
+ try{
+  events=new EventSource('/api/camera/events');
+  events.addEventListener('upload',()=>{
+   if(mode.value==='remote'&&!captured.value&&active.value&&!fetching.value&&!probing.value)getFrame(generation);
+  });
+  events.onerror=()=>{if(events&&events.readyState===EventSource.CLOSED)events=null};
+ }catch{events=null}
+}
+function stop(){generation++;clearTimeout(timer);request?.abort();closeEvents();stream?.getTracks().forEach(track=>track.stop());stream=null;ready.value=false;active.value=false;fetching.value=false;probing.value=false;waitingUpload.value=false}
 function schedule(turn,seconds){clearTimeout(timer);timer=setTimeout(()=>getFrame(turn),Math.max(5,Number(seconds)||20)*1000)}
 function discard(){if(preview.value)URL.revokeObjectURL(preview.value);preview.value='';captured.value=null;emit('discard')}
 async function startLocal(){
@@ -35,7 +48,7 @@ async function getFrame(turn){
   frame.value=null;active.value=false;waitingUpload.value=false;cameraError.value=error.message;
  }finally{if(turn===generation)fetching.value=false}
 }
-function connect(){stop();frame.value=null;cameraError.value='';report.value=null;getFrame(generation)}
+function connect(){stop();frame.value=null;cameraError.value='';report.value=null;listenUploads();getFrame(generation)}
 function disconnect(){stop();frame.value=null;cameraError.value=''}
 // Ask the backend to try the address and the known photo endpoints, and show every attempt.
 async function diagnose(){
@@ -48,7 +61,7 @@ async function diagnose(){
   report.value=result;
   if(result.ok||result.receiver_waiting){
    waitingUpload.value=!!result.receiver_waiting;frame.value=result.image?result:null;
-   active.value=true;schedule(turn,result.refresh_seconds);
+   active.value=true;listenUploads();schedule(turn,result.refresh_seconds);
   }else{cameraError.value=result.message}
  }catch(error){if(alive&&turn===generation)cameraError.value=error.message}
  finally{if(turn===generation)probing.value=false}

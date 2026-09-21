@@ -6,6 +6,7 @@ accepts raw JPEG/PNG or one multipart file. GET returns the original uploaded by
 import asyncio
 import hashlib
 import io
+import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -45,6 +46,30 @@ def latest():
     with store.db() as db:
         row = db.execute('SELECT * FROM camera_snapshot WHERE id=1').fetchone()
     return dict(row) if row else None
+
+
+# Upload notification registry: the SSE endpoint blocks on this condition so pages can
+# fetch a new frame the moment the firmware POST lands, without waiting for their poll.
+_UPLOAD_STATE = {'version': 0}
+_UPLOAD_COND = threading.Condition()
+
+
+def notify_upload():
+    with _UPLOAD_COND:
+        _UPLOAD_STATE['version'] += 1
+        _UPLOAD_COND.notify_all()
+
+
+def upload_version():
+    with _UPLOAD_COND:
+        return _UPLOAD_STATE['version']
+
+
+def wait_for_upload(after, timeout):
+    """Block until an upload newer than `after` arrives or timeout; returns the version."""
+    with _UPLOAD_COND:
+        _UPLOAD_COND.wait_for(lambda: _UPLOAD_STATE['version'] > after, timeout=timeout)
+        return _UPLOAD_STATE['version']
 
 
 def metadata(row):
@@ -101,6 +126,7 @@ def save_image(data, sender):
         db.execute('''INSERT OR REPLACE INTO camera_snapshot
             (id,image,media_type,sha256,received_at,sender,width,height)
             VALUES(1,:image,:media_type,:sha256,:received_at,:sender,:width,:height)''', row)
+    notify_upload()
     return {'ok': True, 'status': 'ok', 'message': '照片已接收并保存', **metadata(row)}
 
 

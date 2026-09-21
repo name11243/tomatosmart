@@ -1,5 +1,5 @@
 camera:
-  url: http://192.168.31.10:500/snapshot
+  url: 'http://192.168.31.10:500/snapshot'
   refresh_seconds: 20
   # ESP32-P4 摄像头为倒装安装，上传画面上下颠倒；入库时按此角度转正。
   rotate: 180

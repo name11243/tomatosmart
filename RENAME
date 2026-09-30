@@ -1,0 +1,199 @@
+# RENAME
+# 多源感知水培智控系统（仓库目录 tomatosmart）· 项目文件清单与命名对照
+#
+# 用途
+#   1) 交接、迁移或改名前的完整核对清单：逐条列出仓库内每个文件的类别与用途；
+#   2) 命名对照：同一事物在代码、配置与部署中的不同名称（见文末「命名对照」）；
+#   3) 改名注意：标注哪些文件被项目约定为固定名称，以及改名时必须同步修改的位置。
+#
+# 格式
+#   <相对路径> | <类别> | <用途与调用关系> | <改名注意>
+#   路径均相对仓库根目录；本清单文件自身不计入条目。
+#   改名注意取值：固定 = 约定不得改名/改名会破坏构建或部署；可改 = 可改名但需同步引用；
+#                 生成物 = 构建或运行产物；运行数据 = 本地数据，不入版本管理。
+#
+# 维护
+#   新增、删除或重命名文件后请同步更新本清单，保证条目完整、准确、与项目实际情况一致。
+#   最近核对：HEAD d1036c8，并含本次修复与整改——backend/main.py 的语法错误已按原程序最小回退；已删除误入库的孤立文件 backend/from fastapi import FastAPI.txt；MQTT/摄像头 IP 已统一为 192.168.31.217（详见 docs/project-structure.md §9、§10）。
+
+## 根目录
+.dockerignore | 配置 | Docker 构建忽略清单（排除 .git/.env/node_modules/data/dist/权重/QA 图） | 固定
+.env.example | 配置 | 本机环境变量模板：Neo4j、HYDRO_REAL_ONLY、YOLO、Ollama、MQTT 密码引用 | 固定
+.gitattributes | 配置 | 统一换行：全部 LF，*.cmd 保持 CRLF | 固定
+.gitignore | 配置 | 忽略运行数据、.env、数据库、权重与 .workbuddy/ | 可改
+.npmrc | 配置 | npm 关闭 fund/audit 输出 | 可改
+.openai/hosting.json | 配置 | Sites 托管绑定声明（d1/r2 逻辑绑定） | 固定
+AGENTS.md | 文档 | 原型约定、历次用户决策与硬性约束（真实数据、MQTT 协议、IP 同步等） | 固定
+README.md | 文档 | 产品说明、启动方式、功能边界、真实模型与设备说明 | 可改
+index.html | 前端 | 单页应用宿主，挂载 #app 并加载 src/main.js | 固定
+package.json | 前端 | 依赖与脚本：dev / build（vite build + prepare-sites-build）/ test:sites | 固定
+package-lock.json | 前端 | 依赖锁定文件，保证可复现安装 | 固定
+vite.config.mjs | 前端 | Vite 配置：outDir=dist/client、allowedHosts、/api 反代 8016 | 固定
+start.sh | 运维 | 非容器开发启动：Neo4j + uvicorn + vite，Ctrl+C 统一回收 | 可改
+一键修改IP.cmd | 运维 | Windows 双击入口，转调 scripts/change-ip.ps1 并暂停显示结果 | 可改
+docker-compose.yml | 部署 | 权威编排：neo4j + api + web 三服务、端口与卷定义 | 固定
+compose.neo4j.yml | 部署 | 仅启动独立 Neo4j 容器（本地开发用） | 可改
+design-qa.md | 文档 | 视觉走查记录（对照用户选定设计稿） | 可改
+
+## 后端 backend/
+backend/__init__.py | 后端 | 包标记，无代码 | 固定
+backend/main.py | 后端 | FastAPI 应用入口：路由注册、角色依赖、异常处理、lifespan 后台任务（本次已修复 2e117af 引入的语法错误，仅回退损坏内容，未改功能） | 固定
+backend/store.py | 后端 | SQLite 数据层：objects 实体表、telemetry 表、聚合、日志证据 | 固定
+backend/sessions.py | 后端 | 本地持久化会话：Token 哈希 + HMAC 证明 + 8 小时过期 | 固定
+backend/schemas.py | 后端 | Pydantic 载荷模型与跨字段校验（遥测、MQTT 配置、命令、问题、记录、设备） | 固定
+backend/control.py | 后端 | 阈值自动策略：滞回、低液位联锁、异常降级手动 | 固定
+backend/mqtt_config.py | 后端 | backend/config/mqtt.yaml 唯一读写入口、原子写入、密钥引用解析 | 固定
+backend/mqtt_service.py | 后端 | MQTT 服务单例：连接状态机、订阅、发布命令、自动重连 | 固定
+backend/tomato_protocol.py | 后端 | r19 / V1.1 协议适配：命令校验与四类主题 ingest | 固定
+backend/device_simulator.py | 后端 | 可选 legacy 协议模拟器，仅供联调，不驱动真实硬件 | 可改
+backend/knowledge_graph.py | 后端 | Neo4j 图谱门面：Cypher 检索、MERGE 入库、图谱布局数据 | 固定
+backend/local_ai.py | 后端 | 本地 Ollama 客户端：严格引用校验的结构化回答 | 固定
+backend/import_project_knowledge.py | 后端 | 幂等导入项目文档为待核验知识资料（KB-PROJECT-*） | 可改
+backend/migrate_knowledge.py | 后端 | 把 SQLite 既有知识迁入 Neo4j，已有记录优先 | 可改
+backend/vision.py | 后端 | 本地 YOLO 推理：权重校验、标签映射、按置信度过滤 | 固定
+backend/remote_camera.py | 后端 | 远程取图与逐址诊断，区分获取时间与采集时间 | 固定
+backend/camera_config.py | 后端 | backend/config/camera.yaml 唯一读写入口（地址、刷新、旋转） | 固定
+backend/camera_receiver.py | 后端 | ESP32-P4 照片接收：POST /snapshot 入库、GET 取最新图、上传事件广播 | 固定
+backend/config/mqtt.yaml | 配置 | MQTT 权威配置与 r19 协议定义（主题、QoS、九条命令、补光档位） | 固定
+backend/config/camera.yaml | 配置 | 摄像头默认地址、刷新秒数与旋转角 | 固定
+backend/models/tomato-v1.json | 配置 | 权重元数据：来源、SHA-256、类别、训练实验名、验证状态 | 固定
+backend/requirements.txt | 后端 | 运行依赖（FastAPI、Paho MQTT、Neo4j、ReportLab、openpyxl 等） | 固定
+backend/requirements-vision.txt | 后端 | CPU 版 torch / torchvision / ultralytics 固定版本 | 固定
+backend/requirements-test.txt | 后端 | 测试依赖（含 AMQTT 本地 Broker） | 固定
+backend/requirements-lock.txt | 后端 | 完整依赖锁定清单 | 固定
+
+## 前端 src/
+src/main.js | 前端 | 应用挂载入口，引入 remixicon 与全局样式 | 固定
+src/App.vue | 前端 | 页面主壳：哈希路由、9 个桌面导航 / 6 个移动导航、全局状态与 2 秒轮询、弹窗与登录 | 固定
+src/api.js | 前端 | fetch 封装：统一错误抽取、401 会话恢复去重重试、导出跳转 | 固定
+src/charts.js | 前端 | ECharts 按需注册（GraphChart、LineChart、Grid、Tooltip、Canvas） | 固定
+src/metric-format.js | 前端 | EC 等指标的统一数值格式化 | 固定
+src/KnowledgeWorkspace.vue | 前端 | 知识库工作区：问答 / 浏览 / 记录三栏，图谱 + 回答 + 资料编辑 | 固定
+src/Graph.vue | 前端 | ECharts 力导向知识图谱：节点配色、聚焦、缩放复位、沉浸模式、截图导出 | 固定
+src/Trend.vue | 前端 | 环境参数折线图（小时/天/周聚合） | 固定
+src/RecognitionImage.vue | 前端 | 在原图上按像素坐标叠加识别框与置信度标注 | 固定
+src/CameraDialog.vue | 前端 | 拍照弹窗：本机摄像头与远程摄像头（SSE 即时刷新、检测连接、暂存重试） | 固定
+src/HardwareControls.vue | 前端 | r19 固件九命令控制面板（雾化泵、补光灯、亮度、阶段、泵参数、休息时段、模式） | 固定
+src/MqttStatusPanel.vue | 前端 | MQTT 通信状态只读展示面板 | 固定
+src/MqttConfigDrawer.vue | 前端 | MQTT 完整配置抽屉：保存 / 测试连接 / 连接 / 断开 | 固定
+src/TomatoGrowth.vue | 前端 | 番茄生长周期科普（四阶段配图 + 键盘导航 + 素材声明） | 固定
+src/styles.css | 前端 | 全局样式、组件样式与全部响应式断点 | 可改
+
+## 静态资源 public/
+public/assets/knowledge-title.woff2 | 资源 | 知识库标题用 Noto Serif SC 字体 | 可改
+public/assets/OFL-Noto-Serif-SC.txt | 文档 | 上述字体的 OFL 授权说明 | 固定
+public/assets/tomato-growth/germination.png | 资源 | 科普配图 · 发芽期（用户提供） | 可改
+public/assets/tomato-growth/seedling.png | 资源 | 科普配图 · 幼苗期（用户提供），并用作侧栏插画 | 可改
+public/assets/tomato-growth/flowering.png | 资源 | 科普配图 · 开花坐果期（用户提供） | 可改
+public/assets/tomato-growth/fruiting.png | 资源 | 科普配图 · 结果期（用户提供），并用作总览页主视觉 | 可改
+
+## 部署 docker/
+docker/api.Dockerfile | 部署 | 后端镜像：python:3.12-slim，分步安装基础与 vision 依赖，uvicorn 启动 | 固定
+docker/web.Dockerfile | 部署 | 前端镜像：node 构建 dist/client 并跑 test:sites，nginx 托管 | 固定
+docker/nginx.conf | 部署 | Nginx：80 反代 /api 并关闭缓冲（支持 SSE）；500 端口仅暴露 /snapshot | 固定
+
+## 运维脚本 scripts/
+scripts/change-ip.ps1 | 运维 | 一键改 IP：按字节保留格式替换 mqtt.host 与 camera.url 主机，改前备份并校验容器内生效 | 可改
+scripts/configure-local-emqx.ps1 | 运维 | 本机 EMQX 认证/授权与 1883 防火墙配置（凭据取自固件源码，临时账号用后即删） | 可改
+scripts/configure-camera-ingress.ps1 | 运维 | 放通本机 TCP 500 入站（仅本地子网），供 ESP32-P4 推送照片 | 可改
+scripts/start-neo4j.sh | 运维 | 生成随机密码 .env、启动独立 Neo4j、等待就绪并迁移知识 | 可改
+scripts/prepare-sites-build.mjs | 运维 | 打包 Sites 产物：dist/server/index.js 与 dist/.openai/hosting.json | 固定
+scripts/verify-camera-preview.mjs | 测试 | 浏览器端到端核验远程摄像头页面并输出 docs/qa 证据 | 可改
+scripts/verify-camera-receiver-preview.mjs | 测试 | 核验 ESP32-P4 照片接收链路的端到端预览证据 | 可改
+scripts/verify-knowledge-camera-preview.mjs | 测试 | 核验知识库页与摄像头弹窗组合场景 | 可改
+scripts/verify-mqtt-preview.mjs | 测试 | 在隔离 MQTT QA 服务上跑通九条命令、校验权限与离线禁用，产出证据 | 可改
+scripts/verify-vision-preview.mjs | 测试 | 核验成熟度识别页交互并输出证据 | 可改
+
+## 测试 tests/
+tests/conftest.py | 测试 | pytest 会话 fixture：临时 MQTT YAML、随机 Neo4j scope 与清理 | 固定
+tests/test_api.py | 测试 | 角色边界、知识召回、档案隔离、课程流程、密钥脱敏、控制不虚报、导出等集成测试 | 可改
+tests/test_tomato_protocol.py | 测试 | YAML 协议定义、命令校验、result/availability 身份、retained 遥测拒绝 | 可改
+tests/test_mqtt_live.py | 测试 | 真实 TCP MQTT（随机端口 AMQTT）收发与回执链路测试 | 可改
+tests/test_neo4j_live.py | 测试 | 真实 Neo4j 读写与检索测试 | 可改
+tests/test_knowledge_ai.py | 测试 | 本地 AI 生成与引用约束测试 | 可改
+tests/test_vision_labels.py | 测试 | 模型类别与标签映射（含 0/2 互换规则）测试 | 可改
+tests/test_tomato_null_telemetry.py | 测试 | r19 显式 null 遥测语义与无读数处理 | 可改
+tests/mqtt_preview_server.py | 测试 | 隔离 MQTT QA 预览服务（供 verify-mqtt-preview.mjs 使用） | 可改
+tests/verify_camera.py | 测试 | 远程摄像头取图与诊断的现场核验脚本 | 可改
+tests/verify_camera_receiver.py | 测试 | 照片接收服务（POST/GET/陈旧判定/旋转）核验脚本 | 可改
+tests/verify_change_ip.py | 测试 | 一键改 IP 脚本的备份、字节保真与回滚行为核验 | 可改
+tests/verify_firmware_contract.py | 测试 | 用 AST 比对固件源码与 mqtt.yaml 契约（不执行固件） | 可改
+tests/verify_local_emqx.py | 测试 | 本机 EMQX 连接与主题权限核验脚本 | 可改
+tests/verify_vision.py | 测试 | YOLO 权重加载与推理链路核验脚本 | 可改
+tests/auth-recovery.test.mjs | 测试 | 前端 401 会话恢复与请求重放语义单元测试 | 可改
+tests/metric-format.test.mjs | 测试 | EC 数值格式化单元测试 | 可改
+tests/sites-worker.test.mjs | 测试 | Sites Worker 静态资源与 index.html 回退行为测试 | 固定
+
+## 托管骨架 worker/
+worker/index.js | 前端 | Sites/Cloudflare Worker fetch 处理器：静态资源优先，HTML 404 回退 index.html | 固定
+
+## 文档 docs/
+docs/requirements-source.txt | 文档 | 用户原始需求全文（网页端 8 模块 + APP 端 7 模块 + 留存专项） | 固定
+docs/requirements-coverage.md | 文档 | 需求条目与实现/验收的覆盖对照 | 可改
+docs/implementation-plan.md | 文档 | 分阶段实施计划 | 可改
+docs/completion-audit.md | 文档 | 完成度自查与遗留项 | 可改
+docs/docker-deployment.md | 文档 | 三容器部署说明、端口与数据卷 | 可改
+docs/neo4j.md | 文档 | Neo4j 接入、scope 隔离与离线返回 503 的边界说明 | 可改
+docs/knowledge-ai.md | 文档 | 本地 Ollama 问答、引用约束与快照留存说明 | 可改
+docs/mqtt-protocol.md | 文档 | r19 / V1.1 协议：主题、载荷、命令表与错误码 | 固定
+docs/local-emqx.md | 文档 | 本机 EMQX 接入、认证授权与验证边界 | 可改
+docs/camera.md | 文档 | 摄像头接入方式（本机、远程、ESP32-P4 推送） | 可改
+docs/change-ip.md | 文档 | 一键改 IP 的用法、备份位置与生效验证 | 可改
+docs/design-reference.png | 资源 | 视觉设计基准稿 | 固定
+docs/project-structure.md | 文档 | 项目结构与功能说明（目录、模块、调用关系、特性、已知问题） | 可改
+
+## QA 证据 docs/qa/
+docs/qa/build-results.txt | 证据 | 构建结果记录 | 生成物
+docs/qa/test-results.txt | 证据 | 测试结果记录 | 生成物
+docs/qa/real-data-mode.md | 证据 | 真实数据模式的行为与验证说明 | 可改
+docs/qa/mqtt-ui-removal.md | 证据 | 旧 MQTT 内嵌面板移除的核对说明 | 可改
+docs/qa/all-routes.png | 证据 | 全路由截图 | 生成物
+docs/qa/desktop-final.png | 证据 | 桌面端终版截图 | 生成物
+docs/qa/mobile-final.png | 证据 | 移动端终版截图 | 生成物
+docs/qa/comparison-final.png | 证据 | 与设计稿对比截图 | 生成物
+docs/qa/focused-final.png | 证据 | 局部细节核对截图 | 生成物
+docs/qa/log-evidence.png | 证据 | 日志证据面板截图 | 生成物
+docs/qa/recognition-summary.png | 证据 | 识别统计卡片截图 | 生成物
+docs/qa/neo4j-graph.png | 证据 | 知识图谱渲染截图 | 生成物
+docs/qa/mqtt-production.png | 证据 | MQTT 生产配置截图 | 生成物
+docs/qa/mqtt-settings.png | 证据 | MQTT 设置界面截图 | 生成物
+docs/qa/mqtt-validation.png | 证据 | MQTT 校验提示截图 | 生成物
+docs/qa/mqtt-r19-desktop.png | 证据 | r19 九命令面板桌面端截图 | 生成物
+docs/qa/mqtt-r19-mobile.png | 证据 | r19 九命令面板移动端截图 | 生成物
+docs/qa/mqtt-r19-preview.json | 证据 | 九命令端到端核验报告（隔离服务、QoS 0、权限与离线禁用） | 生成物
+docs/qa/camera-desktop.png | 证据 | 摄像头弹窗（本机）桌面端截图 | 生成物
+docs/qa/camera-mobile.png | 证据 | 摄像头弹窗（本机）移动端截图 | 生成物
+docs/qa/camera-address-desktop.png | 证据 | 摄像头地址编辑桌面端截图 | 生成物
+docs/qa/camera-address-mobile.png | 证据 | 摄像头地址编辑移动端截图 | 生成物
+docs/qa/camera-preview.json | 证据 | 摄像头取图核验报告 | 生成物
+docs/qa/camera-receiver-desktop.png | 证据 | 照片接收页桌面端截图 | 生成物
+docs/qa/camera-receiver-mobile.png | 证据 | 照片接收页移动端截图 | 生成物
+docs/qa/camera-receiver-check.json | 证据 | 照片接收链路核验报告 | 生成物
+docs/qa/knowledge-ai-desktop.png | 证据 | 知识问答桌面端截图 | 生成物
+docs/qa/knowledge-ai-mobile.png | 证据 | 知识问答移动端截图 | 生成物
+docs/qa/knowledge-overview-desktop.png | 证据 | 知识库浏览桌面端截图 | 生成物
+docs/qa/knowledge-editor-mobile.png | 证据 | 知识资料编辑移动端截图 | 生成物
+docs/qa/knowledge-camera-check.json | 证据 | 知识库与摄像头组合场景核验报告 | 生成物
+docs/qa/vision-desktop.png | 证据 | 成熟度识别桌面端截图 | 生成物
+docs/qa/vision-mobile.png | 证据 | 成熟度识别移动端截图 | 生成物
+docs/qa/vision-preview.json | 证据 | 识别页核验报告 | 生成物
+docs/qa/neo4j-live-verification.json | 证据 | 真实 Neo4j 连通与查询核验报告 | 生成物
+docs/qa/emqx-local-verification.json | 证据 | 本机 EMQX 连接与主题核验报告 | 生成物
+
+## 命名对照（同一事物在不同位置的名称）
+# 说明：改名或迁移时按下表逐项核对，避免只改一处导致前后端或部署失配。
+仓库目录 / Git 仓库 | tomatosmart
+npm 包名（package.json） | hydroponic-system
+产品名（后端 title / 文档） | 多源感知水培智控系统
+页面标题（index.html / 顶栏） | 智慧劳动与科技教育平台
+Compose 项目名 / 数据命名空间 | hydroponic（容器 hydroponic-web / hydroponic-api / hydroponic-neo4j；镜像 hydroponic-web:local / hydroponic-api:local；数据卷 hydroponic-neo4j-data）
+Neo4j 数据库 / 图 scope | database=neo4j；scope=hydroponic（演示）、hydroponic-real（真实）
+MQTT 根主题 / 系统设备号 | tomato_hnsw0001；绑定设备编号 HY-001
+固件标识 | 2026-09-03-esp32s3-stable-mqtt-r19（ESP32-S3 r19）
+AI 权重 | 原始文件名 best(3).pt → 部署副本 backend/models/tomato-v1.pt
+端口占用 | 网页 5176 / 5173、API 8016、Neo4j 7476 / 7689、照片入口 500、MQTT 1883、EMQX 控制台 18083
+本机部署地址（当前权威值） | 192.168.31.217 —— 同时是 `backend/config/mqtt.yaml` 的 `host`、`backend/config/camera.yaml` 的 url 主机、README/docs 的网页入口，以及设备端保存的 MQTT 服务器地址；换网络后用 `一键修改IP.cmd` 同步（配置改动前会备份到 `data/ip-backups/`）。注意本机若不在该网段则硬件无法连通。
+数据目录 | backend/real-data（真实模式，默认）、backend/data（旧演示数据，隔离保留）
+关键环境变量 | HYDRO_REAL_ONLY、HYDRO_DATA_DIR、HYDRO_DEMO、HYDRO_MQTT_CONFIG、HYDRO_CAMERA_CONFIG、HYDRO_ENV_FILE、HYDRO_OLLAMA_URL、HYDRO_LLM_MODEL、NEO4J_URI/USER/PASSWORD/DATABASE/SCOPE、YOLO_MODEL_PATH、YOLO_DEVICE、YOLO_CLASS_MAP、TOMATO_MQTT_PASSWORD
+知识来源编号前缀 | KB-（资料）、KB-PROJECT-（项目文档导入）
+课程任务编号 | TASK-01 ~ TASK-12
